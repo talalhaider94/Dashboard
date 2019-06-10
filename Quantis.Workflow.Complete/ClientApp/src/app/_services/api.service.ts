@@ -38,4 +38,14 @@ export class ApiService {
         )
       );
   }
+
+  updateConfig(config) {
+    return this.http.post('http://10.10.10.102/api/information/AddUpdateConfiguration', config)
+      .pipe(
+        tap(
+          data => data,
+          error => error
+        )
+      );
+  }
 }

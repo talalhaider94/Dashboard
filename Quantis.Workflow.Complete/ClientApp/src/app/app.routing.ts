@@ -82,6 +82,14 @@ export const routes: Routes = [
       {
         path: 'catalogo',
         loadChildren: './views/catalogo/catalogo.module#CatalogoModule'
+      },
+      {
+        path: 'archivedkpi',
+        loadChildren: './views/archivedkpi/archivedkpi.module#ArchivedKpiModule'
+      },
+      {
+        path: 'tconfiguration',
+        loadChildren: './views/tconfiguration/tconfiguration.module#TConfigurationModule'
       }
     ]
   },

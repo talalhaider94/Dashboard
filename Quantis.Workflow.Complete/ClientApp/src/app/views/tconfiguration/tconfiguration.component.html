@@ -16,14 +16,14 @@
       <tr *ngFor="let row of ConfigTableBodyData; index as i">
         <td>{{row.key}}</td>
         <td>{{row.value}}</td>
-        <td align="center"><button class="btn btn-primary" data-toggle="modal" data-target="#configKpiModal">Update</button></td>
+        <td align="center"><button class="btn btn-primary" data-toggle="modal" data-target="#configModal">Update</button></td>
       </tr>
       </tbody>
     </table>
   </div>
 </div>
 
-<div id="archivedKpiModal" class="modal fade bs-example-modal-lg" tabindex="-1" role="dialog" aria-labelledby="classInfo" aria-hidden="true">
+<div id="configModal" class="modal fade bs-example-modal-lg" tabindex="-1" role="dialog" aria-labelledby="classInfo" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
@@ -36,18 +36,16 @@
         <table id="classTable" class="table table-bordered">
           <thead style="background: #E6E6E6">
           <tr>
-            <th>REFERENTI_INPUT</th>
-            <th>REFERENTI_1</th>
-            <th>REFERENTI_2</th>
-            <th>REFERENTI_3</th>
+            <th>Key</th>
+            <th>Value</th>
+            <th>Action</th>
           </tr>
           </thead>
           <tbody>
           <tr>
             <td></td>
             <td></td>
-            <td></td>
-            <td></td>
+            <td align="center"><button class="btn btn-primary">Update</button></td>
           </tr>
           </tbody>
         </table>

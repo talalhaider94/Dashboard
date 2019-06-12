@@ -67,6 +67,11 @@ export class ApiService {
       );
   }
 
+  getAllArchivedKpis(id): Observable<any> {
+    const getArchivedKpisEndPoint = `http://10.10.10.102/api/data/getallarchivedkpis?id_kpi=${id}`;
+    return this.http.get(getArchivedKpisEndPoint, Headers.setHeaders('GET'));
+  }
+
 //   getArchivedKpis(): Observable<any> {
 //     const getArchivedKpisEndPoint = `http://10.10.10.102/api/data/getallarchivedkpis?month=05&year=2019`;
 //     return this.http.get(getArchivedKpisEndPoint, Headers.setHeaders('GET'));

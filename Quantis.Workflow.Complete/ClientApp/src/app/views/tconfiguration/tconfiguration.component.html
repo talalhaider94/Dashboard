@@ -1,24 +1,34 @@
 <div style="margin-top: -20px;">
   <div class="table-responsive" style="background: #ffffff; padding: 10px">
     <br>
-    <h2 style="color:#565656">T Configurations</h2><br>
+    <h2 style="color:#565656">CONFIGURAZIONI</h2><br>
     <div class="row">
-      <input type="text" class="form-control ml-3" style="width:10%;" placeholder="Key" #searchCol1 />
+      <input type="text" class="form-control ml-3" style="width:10%;" placeholder="Chiave" #searchCol1 />
+      <button style="margin-left:90%" class="btn btn-success" data-toggle="modal"
+              data-target="#addConfigModal">
+        Crea Nuovo
+      </button>
     </div><br />
-    <table class="table table-bordered" #ConfigurationTable datatable [dtOptions]="dtOptions">
+    <table class="table table-bordered" #ConfigurationTable datatable [dtOptions]="dtOptions" [dtTrigger]="dtTrigger">
       <thead style="background: #E6E6E6">
         <tr>
-          <th>Key</th>
-          <th>Value</th>
-          <th>Action</th>
+          <th>Chiave</th>
+          <th>Owner</th>
+          <th>Valore</th>
+          <th>Azione</th>
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let row of ConfigTableBodyData; index as i">
           <td>{{row.key}}</td>
+          <td>{{row.owner}}</td>
           <td>{{row.value}}</td>
-          <td align="center"><button class="btn btn-primary" data-toggle="modal" (click)="populateModalData(row)"
-              data-target="#configModal">Update</button></td>
+          <td align="center">
+            <button class="btn btn-primary" data-toggle="modal" (click)="populateModalData(row)"
+                    data-target="#configModal">
+              Modifica
+            </button>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -40,23 +50,46 @@
           <thead style="background: #E6E6E6">
             <tr>
               <th>Key</th>
+              <th>Owner</th>
               <th>Value</th>
-              <th>Action</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td>{{modalData.key}}</td>
-              <td><input type="text" [(ngModel)]="modalData.value"></td>
-              <td align="center"><button (click)="updateConfig()" class="btn btn-primary">Update</button></td>
+              <td>{{modalData.owner}}</td>
+              <td><input type="text" class="form-control" [(ngModel)]="modalData.value"></td>
             </tr>
           </tbody>
         </table>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-primary" data-dismiss="modal">
-          Close
+        <button (click)="updateConfig()" class="btn btn-success">Aggiorna</button>
+        <button type="button" class="btn btn-primary" data-dismiss="modal">Chiudi</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div id="addConfigModal" class="modal fade bs-example-modal-lg" tabindex="-1" role="dialog" aria-labelledby="classInfo"
+     aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <!--        <h5 class="modal-title" id="approveModalLabel">Giustificativo</h5>-->
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
         </button>
+      </div>
+      <div class="modal-body">
+        <label><b>Enter Chiave</b></label><input type="text" class="form-control" placeholder="Enter Chiave" /><br>
+        <label><b>Enter Owner</b></label><input type="text" class="form-control" placeholder="Enter Owner" /><br>
+        <label><b>Enter Valore</b></label><input type="text" class="form-control" placeholder="Enter Valore" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-success">Aggiungi</button>
+        <button type="button" class="btn btn-primary" data-dismiss="modal">Chiudi</button>
       </div>
     </div>
   </div>

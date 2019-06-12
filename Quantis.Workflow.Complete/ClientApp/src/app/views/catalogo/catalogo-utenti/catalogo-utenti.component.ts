@@ -2,6 +2,7 @@ import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { saveAs } from 'file-saver';
 import { DataTableDirective } from 'angular-datatables';
 import { ApiService } from '../../../_services/api.service';
+import { Subject } from 'rxjs';
 
 declare var $;
 var $this;
@@ -18,12 +19,48 @@ export class CatalogoUtentiComponent implements OnInit {
   @ViewChild('btnExportCSV') btnExportCSV: ElementRef;
   @ViewChild(DataTableDirective) private datatableElement: DataTableDirective;
 
-
   dtOptions: DataTables.Settings = {
-    'dom': 'rtip',
-    'pagingType': 'full_numbers'
+    // 'dom': 'rtip',
+    // 'pagingType': 'full_numbers'
+    language: {
+      processing: "Elaborazione...",
+      search: "Cerca:",
+      lengthMenu: "Visualizza _MENU_ elementi",
+      info: "Vista da _START_ a _END_ di _TOTAL_ elementi",
+      infoEmpty: "Vista da 0 a 0 di 0 elementi",
+      infoFiltered: "(filtrati da _MAX_ elementi totali)",
+      infoPostFix: "",
+      loadingRecords: "Caricamento...",
+      zeroRecords: "La ricerca non ha portato alcun risultato.",
+      emptyTable: "Nessun dato presente nella tabella.",
+      paginate: {
+        first: "Primo",
+        previous: "Precedente",
+        next: "Seguente",
+        last: "Ultimo"
+      },
+      aria: {
+        sortAscending: ": attiva per ordinare la colonna in ordine crescente",
+        sortDescending: ":attiva per ordinare la colonna in ordine decrescente"
+      }
+    }
+
   };
 
+
+  modalData = {
+    BSI_ACCOUNT: '',
+    NOME: '',
+    COGNOME: '',
+    STRUTTURA: '',
+    MAIL: '',
+    USERID: '',
+    RESPONSABILE: '',
+    USER_ADMIN: '',
+    USER_SADMIN: ''
+  };
+
+  dtTrigger: Subject<any> = new Subject();
   UtentiTableBodyData: any = [
     {
       id: '1',
@@ -33,7 +70,9 @@ export class CatalogoUtentiComponent implements OnInit {
       STRUTTURA: 'STRUTTURA',
       MAIL: 'MAIL',
       USERID: 'USERID',
-      RESPONSABILE: 'RESPONSABILE'
+      RESPONSABILE: 'RESPONSABILE',
+      USER_ADMIN: 'USER_ADMIN',
+      USER_SADMIN: 'USER_SADMIN'
     }
   ]
 
@@ -44,46 +83,85 @@ export class CatalogoUtentiComponent implements OnInit {
     ngOnInit() {
     }
 
+
+  populateModalData(data) {
+    this.modalData.BSI_ACCOUNT = data.ca_bsi_account;
+    this.modalData.NOME = data.name;
+    this.modalData.COGNOME = data.surname;
+    this.modalData.STRUTTURA = data.organization;
+    this.modalData.MAIL = data.mail;
+    this.modalData.USERID = data.userid;
+    this.modalData.RESPONSABILE = data.manager;
+    this.modalData.USER_ADMIN = data.user_admin;
+    this.modalData.USER_SADMIN = data.user_sadmin;
+  }
+
+  updateUtenti() {
+    this.apiService.updateCatalogUtenti(this.modalData).subscribe((data: any) => {
+      this.getUsers(); // this should refresh the main table on page
+    });
+  }
+
   // tslint:disable-next-line:use-life-cycle-interface
   ngAfterViewInit() {
-    this.getKpiTableRef(this.datatableElement).then((dataTable_Ref)=>{
-      this.setUpDataTableDependencies(dataTable_Ref);
-    });
-    this.apiService.getCatalogoUsers().subscribe((data)=>{
+    this.dtTrigger.next();
+
+    this.setUpDataTableDependencies();
+    this.getUsers();
+
+    this.apiService.getCatalogoUsers().subscribe((data:any)=>{
       this.UtentiTableBodyData = data;
-      console.log('kpis ', data);
-    })
+      this.rerender();
+    });
   }
 
-  getKpiTableRef(datatableElement: DataTableDirective): any {
-    return datatableElement.dtInstance;
+  ngOnDestroy(): void {
+    // Do not forget to unsubscribe the event
+    this.dtTrigger.unsubscribe();
   }
 
-  setUpDataTableDependencies(datatable_Ref){
+  rerender(): void {
+    this.datatableElement.dtInstance.then((dtInstance: DataTables.Api) => {
+      // Destroy the table first
+      dtInstance.destroy();
+      // Call the dtTrigger to rerender again
+      this.dtTrigger.next();
+      this.setUpDataTableDependencies();
+    });
+  }
+
+  // getKpiTableRef(datatableElement: DataTableDirective): any {
+  //   return datatableElement.dtInstance;
+  // }
+
+  setUpDataTableDependencies(){
       // #column3_search is a <input type="text"> element
       $(this.searchCol1.nativeElement).on( 'keyup', function () {
+        $this.datatableElement.dtInstance.then((datatable_Ref: DataTables.Api) => {
         datatable_Ref
             .columns( 1 )
             .search( this.value )
             .draw();
       });
+      });
       $(this.searchCol2.nativeElement).on( 'keyup', function () {
+        $this.datatableElement.dtInstance.then((datatable_Ref: DataTables.Api) => {
         datatable_Ref
             .columns( 2 )
             .search( this.value )
             .draw();
       });
-   
-   
+      });
+
       // export only what is visible right now (filters & paginationapplied)
       $(this.btnExportCSV.nativeElement).click(function (event) {
           event.preventDefault();
-          //$this.table2csv(datatable_Ref, 'visible', 'table.dataTables-reports');
-          $this.table2csv(datatable_Ref, 'full', 'table.dataTables-reports');
+          $this.datatableElement.dtInstance.then((datatable_Ref: DataTables.Api) => {
+          $this.table2csv(datatable_Ref, 'visible', '.kpiTable');
+        });
       });
     }
-  
-  
+
     table2csv(oTable, exportmode, tableElm) {
       var csv = '';
       var headers = [];
@@ -131,5 +209,9 @@ export class CatalogoUtentiComponent implements OnInit {
       tmp.innerHTML = html;
       return tmp.textContent||tmp.innerText;
     }
-    
+
+  getUsers() {
+    this.apiService.getCatalogoUsers().subscribe((data: any) => {
+    });
+  }
   }

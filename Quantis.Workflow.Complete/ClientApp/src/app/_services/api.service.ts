@@ -57,25 +57,25 @@ export class ApiService {
   }
 
 
-  getArchivedKpis() {
-    return this.http.get('https://api.myjson.com/bins/uyad1')
-      .pipe(
-        tap(
-          data => data,
-          error => error
-        )
-      );
+  // getArchivedKpis() {
+  //   return this.http.get('https://api.myjson.com/bins/lp589')
+  //     .pipe(
+  //       tap(
+  //         data => data,
+  //         error => error
+  //       )
+  //     );
+  // }
+
+  getArchivedKpis(): Observable<any> {
+    const getArchivedKpisEndPoint = `http://10.10.10.102/api/data/getallarchivedkpis?month=05&year=2019`;
+    return this.http.get(getArchivedKpisEndPoint, Headers.setHeaders('GET'));
   }
 
   getAllArchivedKpis(id): Observable<any> {
     const getArchivedKpisEndPoint = `http://10.10.10.102/api/data/getallarchivedkpis?id_kpi=${id}`;
     return this.http.get(getArchivedKpisEndPoint, Headers.setHeaders('GET'));
   }
-
-//   getArchivedKpis(): Observable<any> {
-//     const getArchivedKpisEndPoint = `http://10.10.10.102/api/data/getallarchivedkpis?month=05&year=2019`;
-//     return this.http.get(getArchivedKpisEndPoint, Headers.setHeaders('GET'));
-//   }
 
   updateConfig(config) {
     return this.http.post('http://10.10.10.102/api/information/AddUpdateConfiguration', config, Headers.setHeaders('POST'))

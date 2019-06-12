@@ -124,11 +124,11 @@ export class ArchivedKpiComponent implements OnInit {
     // #column3_search is a <input type="text"> element
     $(this.searchCol1.nativeElement).on( 'keyup', function () {
       $this.datatableElement.dtInstance.then((datatable_Ref: DataTables.Api) => {
-      datatable_Ref
-        .columns( 0 )
-        .search( this.value )
-        .draw();
-    });
+        datatable_Ref
+          .columns( 0 )
+          .search( this.value )
+          .draw();
+      });
     });
 
   }

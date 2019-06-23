@@ -1,20 +1,33 @@
 import { NgModule } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ChartsModule } from 'ng2-charts/ng2-charts';
 import { BsDropdownModule } from 'ngx-bootstrap/dropdown';
 import { ButtonsModule } from 'ngx-bootstrap/buttons';
-
+import { CommonModule } from '@angular/common';
 import { KPIComponent } from './kpi.component';
 import { KPIRoutingModule } from './kpi-routing.module';
+import { RicercaComponent } from './ricerca/ricerca.component';
+import { DataTablesModule } from 'angular-datatables';
+import { ModalModule } from 'ngx-bootstrap/modal';
+import { BsDatepickerModule } from 'ngx-bootstrap/datepicker';
+import { TooltipModule } from 'ngx-bootstrap/tooltip';
+import { PopoverModule } from 'ngx-bootstrap/popover';
 
 @NgModule({
   imports: [
     FormsModule,
+    ReactiveFormsModule,
     KPIRoutingModule,
     ChartsModule,
     BsDropdownModule,
-    ButtonsModule.forRoot()
+    ButtonsModule.forRoot(),
+    DataTablesModule,
+    CommonModule,
+    ModalModule.forRoot(),
+    BsDatepickerModule.forRoot(),
+    TooltipModule.forRoot(),
+    PopoverModule.forRoot(),
   ],
-  declarations: [ KPIComponent ]
+  declarations: [ KPIComponent, RicercaComponent ]
 })
 export class KPIModule { }

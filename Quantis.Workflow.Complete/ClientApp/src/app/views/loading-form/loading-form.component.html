@@ -10,7 +10,7 @@
                     <th class="text-center">No.</th>
                     <th class="text-center">Form ID</th>
                     <th class="text-center">Nome Form</th>
-                    <th class="text-center">Gruppo</th>
+                    <th class="text-center" *ngIf="!isAdmin">Gruppo</th>
                     <th class="text-center">Azione</th>
                   </tr>
                 </thead>
@@ -33,12 +33,12 @@
                     <td>
                       <div class="text-center">{{ loadingForm.form_name }}</div>
                     </td>
-                    <td>
+                    <td *ngIf="!isAdmin">
                       <div class="text-center">{{ loadingForm.user_group_name || 'N/A' }}</div>
                     </td>
                     <td>
                       <div class="text-center">
-                        <a [routerLink]="['/loading-form/admin2', loadingForm.form_id, loadingForm.form_name]" class="btn btn-info btn-sm"><span class="fa fa-edit"></span></a>
+                        <a [routerLink]="['/loading-form/admin', loadingForm.form_id, loadingForm.form_name]" class="btn btn-info btn-sm"><span class="fa fa-edit"></span></a>
                       </div>
                     </td>
                   </tr>

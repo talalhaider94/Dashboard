@@ -39,7 +39,17 @@ export class CatalogoKpiComponent implements OnInit {
   @ViewChild('btnExporta') btnExporta: ElementRef;
   @ViewChild(DataTableDirective) private datatableElement: DataTableDirective;
 
-  dtOptions: DataTables.Settings = {
+  viewModel = {
+    filters: {
+      idKpi: '',
+      titoloBreve: '',
+      referenti: '',
+      tuttiContratti: '',
+      tutteLeFrequenze: ''
+    }
+  };
+
+  dtOptions = {
     //'dom': 'rtip',
     "columnDefs": [{
       "targets": [13],
@@ -135,26 +145,7 @@ export class CatalogoKpiComponent implements OnInit {
       hide: 'hidden'
     }];
 
-  kpiTableBodyData: any = [
-    {
-      id: '1',
-      short_name: '',
-      group_type: '',
-      id_kpi: '',
-      id_form: '',
-      kpi_description: '',
-      source_type: '',
-      tracking_period: '',
-      wf_last_sent: '',
-      rm_last_sent: '',
-      measure_unit: '',
-      contract: '',
-      referent: '',
-      referent_1: '',
-      referent_2: '',
-      referent_3: ''
-    }
-  ];
+  kpiTableBodyData: any = [];
 
   coloBtn( id: string): void {
     this.des = id;
@@ -351,7 +342,12 @@ export class CatalogoKpiComponent implements OnInit {
       event.preventDefault();
       event.stopPropagation();
       $this.datatableElement.dtInstance.then((datatable_Ref: DataTables.Api) => {
-        $this.table2csv(datatable_Ref, 'full', '.kpiTable');
+        if($this.viewModel.filters.idKpi || $this.viewModel.filters.titoloBreve || $this.viewModel.filters.referenti || $this.viewModel.filters.tuttiContratti || $this.viewModel.filters.tutteLeFrequenze){
+          $this.table2csv(datatable_Ref, 'visible', '.kpiTable');
+        } else {
+          $this.table2csv(datatable_Ref, 'full', '.kpiTable');
+        }
+        //$this.table2csv(datatable_Ref, 'full', '.kpiTable');
       });
     });
   }

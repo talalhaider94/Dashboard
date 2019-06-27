@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Quantis.WorkFlow.Services;
 using Quantis.WorkFlow.Services.API;
 using Quantis.WorkFlow.Services.DTOs.API;
+using Quantis.WorkFlow.Services.Framework;
 
 namespace Quantis.WorkFlow.Controllers
 {
@@ -39,7 +40,11 @@ namespace Quantis.WorkFlow.Controllers
         {
             return _dataAPI.RemoveAttachment(id);
         }
-
+        [HttpGet("GetEmailHistory")]
+        public List<NotifierLogDTO> GetEmailHistory()
+        {
+            return _dataAPI.GetEmailHistory();
+        }
         [HttpGet("GetWidgetById/{id}")]
         public WidgetDTO GetWidgetById(int id)
         {
@@ -49,6 +54,11 @@ namespace Quantis.WorkFlow.Controllers
         public bool AddUpdateWidget([FromBody]WidgetDTO dto)
         {
             return _dataAPI.AddUpdateWidget(dto);
+        }
+        [HttpPost("GetAllPagedUsers")]
+        public PagedList<UserDTO> GetAllPagedUsers([FromBody]UserFilterDTO filter)
+        {
+            return _dataAPI.GetAllPagedUsers(filter);
         }
         [HttpGet("GetAllUsers")]
         public List<UserDTO> GetAllUsers()
@@ -96,12 +106,12 @@ namespace Quantis.WorkFlow.Controllers
             return _dataAPI.AddUpdateGroup(dto);
         }
         [HttpGet("GetAllKpis")]
-        public List<CatalogKPILVDTO> GetAllKpis()
+        public List<CatalogKpiDTO> GetAllKpis()
         {
             return _dataAPI.GetAllKpis();
         }
         [HttpGet("GetKpiById/{id}")]
-        public CatalogKPILVDTO GetKpiById(int id)
+        public CatalogKpiDTO GetKpiById(int id)
         {
             return _dataAPI.GetKpiById(id);
         }
@@ -132,7 +142,7 @@ namespace Quantis.WorkFlow.Controllers
             if (data != null) {
                 return Ok(data);
             }
-            var json = new {error = "Login Error", description = "Username o Password errati."};
+            var json = new { error = "Login Error", description = "Username o Password errati." };
             return StatusCode(StatusCodes.Status401Unauthorized, json);
         }
         [HttpGet("ResetPassword")]
@@ -147,29 +157,67 @@ namespace Quantis.WorkFlow.Controllers
             return _dataAPI.SumbitForm(dto);
         }
 
+        [HttpPost("SubmitAttachment")]
+        [DisableRequestSizeLimit]
+        public bool SubmitAttachment([FromBody]List<FormAttachmentDTO> dto)
+        {
+            return _dataAPI.SubmitAttachment(dto);
+        }
+        [HttpGet("GetAttachmentsByFormId")]
+        public List<FormAttachmentDTO> GetAttachmentsByFormId(int formId)
+        {
+            return _dataAPI.GetAttachmentsByFormId(formId);
+        }
+        [HttpGet("GetAllTUsers")]
+        public List<TUserDTO> GetAllTUsers()
+        {
+            return _dataAPI.GetAllTUsers();
+        }
         [HttpPost("ArchiveKPIs")]
         public int ArchiveKPIs([FromBody]ArchiveKPIDTO dto)
         {
             return _dataAPI.ArchiveKPIs(dto);
         }
-
+        [HttpGet("GetAllForms")]
+        public List<FormLVDTO> GetAllForms()
+        {
+            return _dataAPI.GetAllForms();
+        }
         //[Authorize(WorkFlowPermissions.USER)]
         [HttpGet("GetAllAPIs")]
         public List<ApiDetailsDTO> GetAllAPIs()
         {
             return _dataAPI.GetAllAPIs();
         }
-
-        [HttpGet("GetAllArchivedKPIs")]
-        public List<ARulesDTO> GetAllArchivedKPIs(string month, string year)
+        [Authorize(WorkFlowPermissions.BASIC_LOGIN)]
+        [HttpGet("GetAllAPIWithPermission")]
+        public List<ApiDetailsDTO> GetAllAPIWithPermission()
         {
-            return _dataAPI.GetAllArchiveKPIs(month, year);
+            return _dataAPI.GetAllAPIs();
         }
 
+        [HttpGet("GetAllArchivedKPIs")]
+        public List<ARulesDTO> GetAllArchivedKPIs(string month, string year, int id_kpi)
+        {
+            return _dataAPI.GetAllArchiveKPIs(month, year, id_kpi);
+        }
+
+        [HttpGet("GetRawDataByKpiID")]
+        public List<ATDtDeDTO> GetRawDataByKpiID(int id_kpi, string month, string year)
+        {
+            return _dataAPI.GetRawDataByKpiID(id_kpi, month, year);
+        }
         [HttpGet("GetDetailsArchivedKPI")]
         public List<ATDtDeDTO> GetDetailsArchivedKPIs(int idkpi, string month, string year)
         {
             return _dataAPI.GetDetailsArchiveKPI(idkpi, month, year);
+        }
+
+
+        [HttpGet("GetFormConfiguration")]
+        public List<FormConfigurationDTO> GetFormConfiguration()
+        {
+            return _dataAPI.GetFormConfiguration();
         }
 
     }

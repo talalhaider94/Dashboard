@@ -21,26 +21,31 @@ namespace Quantis.WorkFlow.Controllers
         {
             _sdmAPI = sdmAPI;
         }
-        [HttpGet("GetTicketDescriptionByUser")]
-        public List<SDMTicketLVDTO> GetTicketDescriptionByUser(string name)
+        [HttpGet("GetTicketsVerificationByUser")]
+        public List<SDMTicketLVDTO> GetTicketsVerificationByUser()
         {
-            return _sdmAPI.GetTicketDescrptionByUser(name);
+            return _sdmAPI.GetTicketsVerificationByUser(HttpContext);
+        }
+        [HttpGet("GetTicketsSearchByUser")]
+        public List<SDMTicketLVDTO> GetTicketsSearchByUser()
+        {
+            return _sdmAPI.GetTicketsRicercaByUser(HttpContext);
         }
         [HttpGet("GetAllTickets")]
         public List<SDMTicketLVDTO> GetAllTickets()
         {
             return _sdmAPI.GetAllTickets();
         }
-        [HttpGet("TransferTicketByKPIID")]
-        public SDMTicketLVDTO TransferTicketByKPIID(int id, string status, string description)
+        [HttpGet("TransferTicketByID")]
+        public SDMTicketLVDTO TransferTicketByID(int id, string status, string description)
         {
-            return _sdmAPI.TransferTicketByKPIID(id,status, description);
+            return _sdmAPI.TransferTicketByID(id,status, description);
         }
 
-        [HttpGet("EscalateTicketbyKPIID")]
-        public SDMTicketLVDTO EscalateTicketbyKPIID(int id, string status, string description)
+        [HttpGet("EscalateTicketbyID")]
+        public SDMTicketLVDTO EscalateTicketbyID(int id, string status, string description)
         {
-            return _sdmAPI.EscalateTicketbyKPIID(id,status, description);
+            return _sdmAPI.EscalateTicketbyID(id,status, description);
         }
 
         [HttpGet("CreateTicketByKPIID")]
@@ -63,10 +68,10 @@ namespace Quantis.WorkFlow.Controllers
         {
             return _sdmAPI.DownloadAttachment(attachmentHandle);
         }
-        [HttpPut("UploadAttachmentToTicket")]
-        public string UploadAttachmentToTicket(int ticketId, string docName, byte[] docContent)
+        [HttpPost("UploadAttachmentToTicket")]
+        public string UploadAttachmentToTicket([FromBody]SDMUploadAttachmentDTO dto)
         {
-            return _sdmAPI.UploadAttachmentToTicket(ticketId, docName, docContent);
+            return _sdmAPI.UploadAttachmentToTicket(dto);
         }
     }
 }

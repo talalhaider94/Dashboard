@@ -12,12 +12,17 @@
             </div>
           </div>
           <div class="table-responsive">
+            <!-- <form [formGroup]="verificaCheckBoxForm"> -->
             <table datatable [dtOptions]="dtOptions" [dtTrigger]="dtTrigger"
               class="table table-responsive-sm table-hover table-outline mb-0 text-center">
 
               <thead class="thead-light">
                 <tr>
-                  <th>#</th>
+                  <th>
+                    <!-- <input formControlName="selectAllTickets" value="selectAllTickets"
+                        (change)="onselectAllCheckboxChange($event)" type="checkbox"> -->
+                    <input type="checkbox" [(ngModel)]="selectedAll" (change)="selectAll();" />
+                  </th>
                   <th class="d-none">ID</th>
                   <th>Rif. Num</th>
                   <th>Sommario</th>
@@ -43,17 +48,60 @@
                   </td>
                 </tr>
                 <tr *ngFor="let ticket of allTickets; let i = index">
-                  <td><input type="checkbox"> </td>
+                  <td>
+                    <input type="checkbox" [(ngModel)]="ticket.selected" (change)="checkIfAllSelected();">
+                    <!-- <input [(ngModel)]="value" formControlName="selectTicket" value="{{ticket.id}}"
+                        (change)="onCheckboxChange(ticket,$event)" type="checkbox"> -->
+                  </td>
                   <td class="d-none">{{ ticket.id }} </td>
                   <td>{{ ticket.ref_num || 'N/A' }}</td>
-                  <td>{{ ticket.summary || 'N/A' }}</td>
-                  <td>{{ ticket.group || 'N/A' }}</td>
+                  <td>
+                    <button type="button" class="btn btn-ghost-dark" [popover]="ticket.summary" triggers="focus">
+                      {{ ticket.summary | slice:0:15 || 'N/A' }}
+                    </button>
+                  </td>
+                  <td>
+                    <button type="button" class="btn btn-ghost-dark" [popover]="ticket.group" triggers="focus">
+                      {{ ticket.group | slice:0:15 || 'N/A' }}
+                    </button>
+                  </td>
                   <td>{{ ticket.status || 'N/A' }}</td>
-                  <td>{{ ticket.description || 'N/A' }}</td>
+                  <td>
+                    <button type="button" class="btn btn-ghost-dark" [popover]="ticket.description" triggers="focus">
+                      {{ ticket.description | slice:0:15 || 'N/A' }}
+                    </button>
+                  </td>
                   <td>{{ ticket.id_kpi || 'N/A' }}</td>
-                  <td>{{ ticket.reference1 || 'N/A' }}</td>
-                  <td>{{ ticket.reference2 || 'N/A' }}</td>
-                  <td>{{ ticket.reference3 || 'N/A' }}</td>
+                  <td>
+                    <div *ngIf="ticket.reference1; else reference1">
+                      <button type="button" class="btn btn-ghost-dark" [popover]="ticket.reference1" triggers="focus">
+                        {{ ticket.reference1 | slice:0:15 }}
+                      </button>
+                    </div>
+                    <ng-template #reference1>
+                      N/A
+                    </ng-template>
+                  </td>
+                  <td>
+                    <div *ngIf="ticket.reference2; else reference2">
+                      <button type="button" class="btn btn-ghost-dark" [popover]="ticket.reference2" triggers="focus">
+                        {{ ticket.reference2 | slice:0:15 }}
+                      </button>
+                    </div>
+                    <ng-template #reference2>
+                      N/A
+                    </ng-template>
+                  </td>
+                  <td>
+                    <div *ngIf="ticket.reference3; else reference3">
+                        <button type="button" class="btn btn-ghost-dark" [popover]="ticket.reference3" triggers="focus">
+                          {{ ticket.reference3 | slice:0:15 }}
+                        </button>
+                      </div>
+                      <ng-template #reference3>
+                        N/A
+                      </ng-template>
+                  </td>
                   <td>{{ ticket.period || 'N/A' }}</td>
                   <td>
                     <button type="button" class="btn btn-success btn-sm" data-toggle="modal"
@@ -70,6 +118,7 @@
                 </tr>
               </tbody>
             </table>
+            <!-- </form> -->
           </div>
         </div>
       </div>
@@ -125,7 +174,7 @@
 
 <div bsModal #infoModal="bs-modal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
   aria-hidden="true">
-  <div class="modal-dialog modal-info" role="document">
+  <div class="modal-dialog modal-info modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header">
         <h4 class="modal-title">Attachments</h4>
@@ -134,6 +183,43 @@
         </button>
       </div>
       <div class="modal-body">
+        <!-- file upload start -->
+        <div class="bg-white pt-2 pb-2 mb-5">
+          <div class="col-sm-12 mb-3 file-container">
+            <h5>File Allegati</h5>
+            <input type="file" class="my-custom-file-field" ng2FileSelect [uploader]="uploader" multiple /><br />
+          </div>
+
+          <div class="col-sm-12">
+            <h5>Elenco dei File</h5>
+            <table class="table table-responsive-sm table-hover table-outline mb-3">
+              <thead>
+                <tr>
+                  <th>Nome File</th>
+                  <th>Azioni</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngIf="uploader.queue.length === 0">
+                  <td colspan="2">nessun file da caricare</td>
+                </tr>
+                <tr *ngFor="let item of uploader.queue">
+                  <td>{{ item?.file?.name }}</td>
+                  <td nowrap>
+                    <button type="button" class="btn btn-danger btn-sm" (click)="item.remove()">
+                      <span class="fa fa-trash"></span>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <button type="button" [disabled]="fileUploading" class="btn btn-primary" (click)="fileUploadUI()">
+              <span class="fa fa-upload" *ngIf="!fileUploading"></span>
+              <span class="fa fa-spinner fa-spin" *ngIf="fileUploading"></span> Carica
+            </button>
+          </div>
+        </div>
+        <!-- file upload end -->
         <!-- success model body table -->
         <div class="table-responsive">
           <table class="table table-responsive-sm table-hover table-outline mb-0 text-center">
@@ -191,7 +277,8 @@
         <!-- APPROVE model body -->
         <form [formGroup]="approveForm" (ngSubmit)="approveFormSubmit()">
           <div class="input-group mb-3">
-            <textarea formControlName="description" class="form-control" placeholder="Description" autocomplete="description" rows="3"></textarea>
+            <textarea formControlName="description" class="form-control" placeholder="Description"
+              autocomplete="description" rows="3"></textarea>
           </div>
           <div class="row">
             <div class="col-6">

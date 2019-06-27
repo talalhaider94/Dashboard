@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
-import { WorkFlowService } from '../../_services';
+import { WorkFlowService, AuthService } from '../../_services';
 import { first } from 'rxjs/operators';
 import { Subject } from 'rxjs';
 import { DataTableDirective } from 'angular-datatables';
@@ -9,15 +9,19 @@ import { FileSaverService } from 'ngx-filesaver';
 import { ToastrService } from 'ngx-toastr';
 import { FormGroup, FormBuilder, Validators } from '@angular/forms';
 import { Observable, forkJoin } from 'rxjs';
+import { FileUploader } from 'ng2-file-upload';
+
+const URL = 'https://evening-anchorage-3159.herokuapp.com/api/';
 @Component({
   templateUrl: './kpi.component.html',
 })
 export class KPIComponent implements OnInit {
+
   @ViewChild('successModal') public successModal: ModalDirective;
   @ViewChild('infoModal') public infoModal: ModalDirective;
-
   @ViewChild('approveModal') public approveModal: ModalDirective;
   @ViewChild('rejectModal') public rejectModal: ModalDirective;
+
   submitted = false;
   allTickets: any = [];
   getTicketHistories: any = [];
@@ -29,23 +33,33 @@ export class KPIComponent implements OnInit {
   dtOptions: any = {};
   dtTrigger = new Subject();
   bsValue = new Date();
-
+  setActiveTicketId: Number;
   approveForm: FormGroup;
   rejectForm: FormGroup;
   selectedTickets: any = [];
+  verificaCheckBoxForm: FormGroup;
+  fileUploading = true;
+  public uploader: FileUploader = new FileUploader({ url: URL });
+
+  selectedAll: any;
+
   constructor(
     private router: Router,
     private workFlowService: WorkFlowService,
     private _FileSaverService: FileSaverService,
     private toastr: ToastrService,
     private formBuilder: FormBuilder,
+    private authService: AuthService
   ) { }
 
   get approveValues() { return this.approveForm.controls; }
   get rejectValues() { return this.rejectForm.controls; }
 
   ngOnInit() {
-
+    this.verificaCheckBoxForm = this.formBuilder.group({
+      selectTicket: [''],
+      selectAllTickets: ['']
+    });
     this.approveForm = this.formBuilder.group({
       description: ['']
     });
@@ -58,17 +72,19 @@ export class KPIComponent implements OnInit {
       pagingType: 'full_numbers',
       pageLength: 10,
       dom: 'Bfrtip',
-      rowCallback: (row: Node, data: any[] | Object, index: number) => {
-        const self = this;
-        // Unbind first in order to avoid any duplicate handler
-        // (see https://github.com/l-lin/angular-datatables/issues/87)
-        $('td', row).unbind('click');
-        $('td', row).bind('click', () => {
-          self.selectedTickets.push(data);
-          console.log('DATA', data);
-        });
-        return row;
-      },
+      // rowCallback: (row: Node, data: any[] | Object, index: number) => {
+      //   const self = this;
+      //   $('td', row).unbind('click');
+      //   $('td', row).bind('click', () => {
+      //     self.selectedTickets.push(data);
+      //     console.log('DATA', data);
+      //   });
+      //   return row;
+      // },
+      // "fnDrawCallback": function( oSettings, iStart, iEnd, iMax, iTotal, sPre ) {
+      // },
+      // "fnInfoCallback": function( oSettings, iStart, iEnd, iMax, iTotal, sPre ) {
+      // },
       buttons: [
         {
           extend: 'colvis',
@@ -111,9 +127,10 @@ export class KPIComponent implements OnInit {
   }
 
   _getAllTickets() {
-    this.workFlowService.getAllTickets().pipe(first()).subscribe(data => {
+    this.workFlowService.getTicketsVerificationByUserVerifica().pipe(first()).subscribe(data => {
       console.log('getAllTickets', data);
-      this.allTickets = data;
+      const appendSelectFale = data.map(ticket => ({ ...ticket, selected: false }))
+      this.allTickets = appendSelectFale;
       this.dtTrigger.next();
       this.loading = false;
     }, error => {
@@ -124,8 +141,8 @@ export class KPIComponent implements OnInit {
 
   ticketActions(ticket) {
     this.loading = true;
+    this.setActiveTicketId = +ticket.id;
     this.workFlowService.getTicketHistory(ticket.id).pipe(first()).subscribe(data => {
-      // this.getTicketHistories = data.filter(ticketHistory => ticketHistory.id === ticket.id);
       if (!!data) {
         this.getTicketHistories = data;
         console.log('ticketActions', data);
@@ -141,8 +158,8 @@ export class KPIComponent implements OnInit {
 
   ticketAttachments(ticket) {
     this.loading = true;
+    this.setActiveTicketId = +ticket.id;
     this.workFlowService.getAttachmentsByTicket(ticket.id).pipe(first()).subscribe(data => {
-      // this.getTicketAttachments = data.filter(ticketAttachment => ticketAttachment.id === ticket.id);
       if (!!data) {
         this.getTicketAttachments = data;
         console.log('ticketAttachments', data);
@@ -185,11 +202,23 @@ export class KPIComponent implements OnInit {
   }
 
   rejectTicket() {
-    this.rejectModal.show();
+    const selectedTickets = this.allTickets.filter(ticket => ticket.selected);
+    this.selectedTickets = selectedTickets;
+    if (this.selectedTickets.length > 0) {
+      this.rejectModal.show();
+    } else {
+      this.toastr.info('Please select a Ticket.');
+    }
   }
 
   approveTicket() {
-    this.approveModal.show();
+    const selectedTickets = this.allTickets.filter(ticket => ticket.selected);
+    this.selectedTickets = selectedTickets;
+    if (this.selectedTickets.length > 0) {
+      this.approveModal.show();
+    } else {
+      this.toastr.info('Please select a Ticket.');
+    }
   }
 
   approveFormSubmit() {
@@ -199,25 +228,15 @@ export class KPIComponent implements OnInit {
 
     let observables = new Array();
     for (let ticket of this.selectedTickets) {
-      observables.push(this.workFlowService.transferTicketByID(ticket[1], ticket[5], description));
+      observables.push(this.workFlowService.escalateTicketbyID(ticket[1], ticket[5], description.value));
     }
     forkJoin(observables).subscribe(data => {
-      // this._getAllTickets();
       this.toastr.success('Ticket approved', 'Success');
       this.loading = false;
     }, error => {
       this.toastr.error('Error while approving form', 'Error');
       this.loading = false;
     });
-    // this.workFlowService.transferTicketByID('', '', description).pipe(first()).subscribe(data => {
-    //   this.toastr.success('Ticket approved', 'Success');
-    //   this.loading = false;
-    // }, error => {
-    //   console.log('approveFormSubmit: error', error);
-    //   this.toastr.error('Error while approving form', 'Error');
-    //   this.loading = false;
-    // })
-
   }
 
   rejectFormSubmit() {
@@ -230,30 +249,76 @@ export class KPIComponent implements OnInit {
 
       let observables = new Array();
       for (let ticket of this.selectedTickets) {
-        observables.push(this.workFlowService.escalateTicketbyID(ticket[1], ticket[5], description));
+        observables.push(this.workFlowService.transferTicketByID(ticket[1], ticket[5], description.value));
       }
       forkJoin(observables).subscribe(data => {
         this.toastr.success('Ticket rejected', 'Success');
-        // this._getAllTickets();
         this.loading = false;
       }, error => {
         this.toastr.error('Error while rejecting form', 'Error');
         this.loading = false;
       });
-
-      // this.workFlowService.escalateTicketbyID('', '', description).pipe(first()).subscribe(data => {
-      //   this.toastr.success('Ticket rejectd', 'Success');
-      //   this.loading = false;
-      // }, error => {
-      //   console.log('rejectFormSubmit: error', error);
-      //   this.toastr.error('Error while reject form', 'Error');
-      //   this.loading = false;
-      // })
     }
   }
 
   ngOnDestroy() {
     this.dtTrigger.unsubscribe();
   }
-  
+
+  // onselectAllCheckboxChange(event) {
+  //   this.verificaCheckBoxForm.setValue({ selectTicket: true, selectAllTickets: true })
+  // }
+  // onCheckboxChange(option, event) {
+  //   if (event.target.checked) {
+  //     this.selectedTickets.push(option);
+  //   } else {
+  //     if (this.selectedTickets.length > 0) {
+  //       for (var i = 0; i < this.selectedTickets.length; i++) {
+  //         if (this.selectedTickets[i].id == option.id) {
+  //           this.selectedTickets.splice(i, 1);
+  //         }
+  //       }
+  //     }
+  //   }
+  // }
+
+  fileUploadUI() {
+    if (this.uploader.queue.length > 0) {
+      console.log('this.uploader', this.uploader);
+      this.uploader.queue.forEach((element, index) => {
+        let file = element._file;
+        this._getUploadedFile(file);
+      });
+    } else {
+      this.toastr.info('Please upload a file');
+    }
+  }
+
+  _getUploadedFile(file) {
+    this.fileUploading = true;
+    const reader: FileReader = new FileReader();
+    reader.onloadend = (function (theFile, self) {
+      let fileName = theFile.name;
+      return function (readerEvent) {
+        let binaryString = readerEvent.target.result;
+        let base64Data = btoa(binaryString);
+        self.fileUploading = false;
+        self.workFlowService.uploadAttachmentToTicket(self.setActiveTicketId, fileName, base64Data).pipe()
+      };
+    })(file, this);
+    reader.readAsBinaryString(file); // return only base64 string
+  }
+
+  selectAll() {
+    for (var i = 0; i < this.allTickets.length; i++) {
+      this.allTickets[i].selected = this.selectedAll;
+    }
+  }
+
+  checkIfAllSelected() {
+    this.selectedAll = this.allTickets.every(function (ticket: any) {
+      return ticket.selected == true;
+    })
+  }
+
 }

@@ -15,13 +15,13 @@ export class WorkFlowService {
   
   getAllTickets(): Observable<any>{
     const allTicketsEndPoint = `${environment.API_URL}/sdm/GetAllTickets`;
-    // return this.http.get('assets/tempData/getalltickets.json');
+    //return this.http.get('assets/tempData/getalltickets.json');
     return this.http.get(allTicketsEndPoint, Headers.setHeaders('GET'));
   }
 
   getTicketByUser(username): Observable<any> {
     //Danial TODO: need to send Login Token in HEADERS
-    const userTicketsEndPoint = `${environment.API_URL}/sdm/userTicketsEndPoint`;
+    const userTicketsEndPoint = `${environment.API_URL}/sdm/GetTicketsByUser`;
     const  params = new  HttpParams().set('username', username);
     return this.http.get(userTicketsEndPoint, { headers: Headers.setHeaders('GET').headers, params });
   }
@@ -63,6 +63,24 @@ export class WorkFlowService {
     const escalateTicketEndPoint = `${environment.API_URL}/sdm/EscalateTicketbyID`;
     const  params = new  HttpParams().set('id', id).set('status', status).set('description', description);
     return this.http.get(escalateTicketEndPoint, { headers: Headers.setHeaders('GET').headers, params });
+  }
+  
+  getTicketsVerificationByUserVerifica (): Observable<any>{
+    const ticketVerificationEndPoint = `${environment.API_URL}/sdm/GetTicketsVerificationByUser`;
+    // return this.http.get('assets/tempData/getalltickets.json');
+    return this.http.get(ticketVerificationEndPoint, Headers.setHeaders('GET'));
+  }
+  
+  getTicketsSearchByUserRecerca (): Observable<any>{
+    const ticketSearchEndPoint = `${environment.API_URL}/sdm/GetTicketsSearchByUser`;
+    // return this.http.get('assets/tempData/getalltickets.json');
+    return this.http.get(ticketSearchEndPoint, Headers.setHeaders('GET'));
+  }
+
+  uploadAttachmentToTicket(ticketId, docName, docContent): Observable<any> {
+    const submitAttachmentEndPoint = `${environment.API_URL}/sdm/UploadAttachmentToTicket`;
+    const  params = new  HttpParams().set('ticketId', ticketId).set('docName', docName).set('docContent', docContent);
+    return this.http.get(submitAttachmentEndPoint, { headers: Headers.setHeaders('PUT').headers, params });
   }
 
 }

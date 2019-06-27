@@ -4,6 +4,7 @@ import { LoadingFormService, AuthService } from '../../../_services';
 import { first } from 'rxjs/operators';
 import { Subject } from 'rxjs';
 import { DataTableDirective } from 'angular-datatables';
+import * as moment from 'moment';
 
 @Component({
   selector: 'app-loading-form-user',
@@ -48,12 +49,13 @@ export class LoadingFormUserComponent implements OnInit, OnDestroy {
           last: "Ultimo"
         },
         aria: {
-          sortAscending: ": attiva per ordinare la colonna in ordine crescente",
+          sortAscending: ":attiva per ordinare la colonna in ordine crescente",
           sortDescending: ":attiva per ordinare la colonna in ordine decrescente"
         }
       }
     };
     const currentUser = this.authService.getUser();
+    // getLoadingForms()
     this.loadingFormService.getFormsByUserId(currentUser.userid).pipe(first()).subscribe(data => {
       console.log('getFormsByUserId', data);
       this.loadingForms = data;
@@ -67,5 +69,19 @@ export class LoadingFormUserComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.dtTrigger.unsubscribe();
+  }
+
+  cutOffRow(row) {
+    if(row.cutoff) {
+      let currentDate = moment().format();
+      let isDateBefore = moment(row.modify_date).isBefore(currentDate);
+        if(isDateBefore) {
+          return true;
+        } else {
+          return false;
+        }
+    } else {
+      return false
+    }
   }
 }

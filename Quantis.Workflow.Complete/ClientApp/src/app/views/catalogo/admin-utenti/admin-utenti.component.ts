@@ -56,9 +56,7 @@ export class AdminUtentiComponent implements OnInit {
     organization: '',
     mail: '',
     userid: '',
-    manager: '',
-    user_admin: false,
-    user_sadmin: false
+    manager: ''
   };
 
   dtTrigger: Subject<any> = new Subject();
@@ -71,9 +69,7 @@ export class AdminUtentiComponent implements OnInit {
       organization: 'STRUTTURA',
       mail: 'MAIL',
       userid: 'USERID',
-      manager: 'RESPONSABILE',
-      user_admin: 'USER_ADMIN',
-      user_sadmin: 'USER_SADMIN'
+      manager: 'RESPONSABILE'
     }
   ]
 
@@ -94,11 +90,9 @@ export class AdminUtentiComponent implements OnInit {
     this.modalData.name = '';
     this.modalData.surname = '';
     this.modalData.organization = data.user_organization_name;
-    this.modalData.mail = data.mail;
+    this.modalData.mail = data.user_email;
     this.modalData.userid = '';
     this.modalData.manager = '';
-    this.modalData.user_admin = false;
-    this.modalData.user_sadmin = false;
   }
 
   updateUtenti() {
@@ -117,7 +111,7 @@ export class AdminUtentiComponent implements OnInit {
   ngAfterViewInit() {
     this.dtTrigger.next();
 
-    this.setUpDataTableDependencies();
+    //this.setUpDataTableDependencies();
 
     //this.getUsers1(); can't get the meaning of this 
     this.getUsers();
@@ -139,7 +133,7 @@ export class AdminUtentiComponent implements OnInit {
       dtInstance.destroy();
       // Call the dtTrigger to rerender again
       this.dtTrigger.next();
-      this.setUpDataTableDependencies();
+      //this.setUpDataTableDependencies();
     });
   }
 
@@ -147,7 +141,7 @@ export class AdminUtentiComponent implements OnInit {
   //   return datatableElement.dtInstance;
   // }
 
-  setUpDataTableDependencies(){
+ /* setUpDataTableDependencies(){
       // #column3_search is a <input type="text"> element
       $(this.searchCol1.nativeElement).on( 'keyup', function () {
         $this.datatableElement.dtInstance.then((datatable_Ref: DataTables.Api) => {
@@ -173,9 +167,9 @@ export class AdminUtentiComponent implements OnInit {
           $this.table2csv(datatable_Ref, 'visible', '.kpiTable');
         });
       });
-    }
+    }*/
 
-    table2csv(oTable, exportmode, tableElm) {
+  /*  table2csv(oTable, exportmode, tableElm) {
       var csv = '';
       var headers = [];
       var rows = [];
@@ -215,7 +209,7 @@ export class AdminUtentiComponent implements OnInit {
        console.log(csv);
       var blob = new Blob([csv], {type: "text/plain;charset=utf-8"});
       saveAs(blob, "CatalogUtenti.csv");
-    }
+    }*/
   
     strip_tags(html) {
       var tmp = document.createElement("div");

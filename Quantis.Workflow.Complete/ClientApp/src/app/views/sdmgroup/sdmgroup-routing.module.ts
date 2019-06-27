@@ -1,14 +1,14 @@
 import { NgModule } from '@angular/core';
 import { Routes, RouterModule } from '@angular/router';
 
-import { CommingsoonComponent } from './commingsoon.component';
+import { SdmGroupComponent } from './sdmgroup.component';
 
 const routes: Routes = [
   {
     path: '',
-    component: CommingsoonComponent,
+    component: SdmGroupComponent,
     data: {
-      title: 'Welcome'
+      title: 'Group'
     }
   }
 ];
@@ -17,4 +17,4 @@ const routes: Routes = [
   imports: [RouterModule.forChild(routes)],
   exports: [RouterModule]
 })
-export class ComingSoonRoutingModule {}
+export class SdmGroupRoutingModule {}

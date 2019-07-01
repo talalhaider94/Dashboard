@@ -145,6 +145,15 @@ namespace Quantis.WorkFlow.Controllers
             var json = new { error = "Login Error", description = "Username o Password errati." };
             return StatusCode(StatusCodes.Status401Unauthorized, json);
         }
+        [HttpGet("Logout")]
+        public void Logout()
+        {
+            var usr = (HttpContext.User) as AuthUser;
+            if (usr != null)
+            {
+                _dataAPI.Logout(usr.SessionToken);
+            }            
+        }
         [HttpGet("ResetPassword")]
         public bool ResetPassword(string username, string email)
         {
@@ -218,6 +227,11 @@ namespace Quantis.WorkFlow.Controllers
         public List<FormConfigurationDTO> GetFormConfiguration()
         {
             return _dataAPI.GetFormConfiguration();
+        }
+        [HttpGet("GetAllCustomersKP")]
+        public List<KeyValuePair<int, string>> GetAllCustomersKP()
+        {
+            return _dataAPI.GetAllCustomersKP();
         }
 
     }

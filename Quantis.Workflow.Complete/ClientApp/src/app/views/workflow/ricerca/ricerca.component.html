@@ -14,8 +14,8 @@
                     <label>
                       “DA – A”
                     </label>
-                    <input type="text" class="form-control  " placeholder="From-To date" ngxDaterangepickerMd
-                      [(ngModel)]="selected" #searchCol1 />
+                    <input type="text" class="form-control " placeholder="DA – A" bsDaterangepicker
+                    [(ngModel)]="daterangepickerModel" #searchCol1 [bsConfig]="{ adaptivePosition: true }" />
                   </div>
                   <div class="col ">
                     <label>
@@ -28,14 +28,14 @@
                     <label>
                       Sommario
                     </label>
-                    <input type="text" class="form-control  " placeholder="Summery" #searchCol3 />
+                    <input type="text" class="form-control  " placeholder="Sommario" #searchCol3 />
                   </div>
                   <div class="col ">
                     <label>
                       Stato
                     </label>
                     <select class="form-control" #searchCol4>
-                      <option value="">Status</option>
+                      <option value="">Stato</option>
                     </select>
                   </div>
                   <div class="w-100"></div>
@@ -43,7 +43,7 @@
                     <label>
                       Descrizione
                     </label>
-                    <input type="text" class="form-control  " placeholder="Description" #searchCol5 />
+                    <input type="text" class="form-control  " placeholder="Descrizione" #searchCol5 />
                   </div>
                 </div>
               </div>
@@ -81,7 +81,7 @@
               </thead>
               <tbody>
                 <tr *ngIf="allTickets.length === 0 && !loading">
-                  <td colspan="13"><strong>No tickets found.</strong></td>
+                  <td colspan="13"><strong>Nessun Ticket Trovato</strong></td>
                 </tr>
                 <tr *ngIf="loading" class="text-center">
                   <td colspan="13">
@@ -185,7 +185,7 @@
             </thead>
             <tbody>
               <tr *ngIf="getTicketHistories.length === 0 && !loading">
-                <td colspan="2"><strong>No tickets found.</strong></td>
+                <td colspan="2"><strong>Nessun ticket trovato.</strong></td>
               </tr>
               <tr *ngIf="loading" class="text-center">
                 <td colspan="2">
@@ -213,7 +213,7 @@
   <div class="modal-dialog modal-info" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h4 class="modal-title">Attachments</h4>
+        <h4 class="modal-title">Allegati</h4>
         <button type="button" class="close" (click)="infoModal.hide()" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -231,7 +231,7 @@
             </thead>
             <tbody>
               <tr *ngIf="getTicketAttachments.length === 0 && !loading">
-                <td colspan="3"><strong>No attachments found.</strong></td>
+                <td colspan="3"><strong>Nessun allegato.</strong></td>
               </tr>
               <tr *ngIf="loading" class="text-center">
                 <td colspan="3">

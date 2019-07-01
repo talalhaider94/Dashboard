@@ -31,7 +31,7 @@ export interface NavData {
 }
 
 export const navItems: NavData[] = [
-  {
+  /*{ // TEMP HIDDEN
     name: 'Dashboard',
     key: '',
     url: '/dashboard',
@@ -40,37 +40,37 @@ export const navItems: NavData[] = [
       variant: 'info',
       text: ''
     }
-  },
+  },*/
   {
     title: true,
     name: 'Menu',
     key: 'alwaysShow'
   },
-  {
+  /*{ // TEMP HIDDEN
     name: 'Home',
     url: '/coming-soon',
     icon: 'icon-home',
     key: ['', ''],
     children: [
-      {
+      { // TEMP HIDDEN
         name: 'Contraenti',
         url: '/coming-soon',
         icon: 'fa fa-th-list',
         key: '',
       },
-      {
+      { // TEMP HIDDEN
         name: 'Contratti',
         url: '/coming-soon',
         icon: 'fa fa-file-text',
         key: '',
       },
     ]
-  },
+  },*/
   {
     name: 'Workflow',
     url: '/coming-soon',
     icon: 'fa fa-code-fork',
-    key: ['VIEW_WORKFLOW_KPI_VERIFICA', 'VIEW_WORKFLOW_RICERCA', 'VIEW_WORKFLOW_RECERCA'],
+    key: ['VIEW_WORKFLOW_KPI_VERIFICA', 'VIEW_WORKFLOW_RICERCA'],
     children: [
       {
         name: 'KPI in Verifica',
@@ -82,7 +82,7 @@ export const navItems: NavData[] = [
         name: 'Ricerca',
         url: '/workflow/ricerca',
         icon: 'fa fa-search',
-        key: ['VIEW_WORKFLOW_RICERCA', 'VIEW_WORKFLOW_RECERCA']
+        key: ['VIEW_WORKFLOW_RICERCA']
       },
     ]
   },
@@ -90,12 +90,13 @@ export const navItems: NavData[] = [
     name: 'Catalogo',
     url: '/catalogo',
     icon: 'fa fa-folder-open-o',
-    key: ['VIEW_CATALOG_KPI', 'VIEW_CATALOG_UTENTI'],
+    key: ['VIEW_CATALOG_KPI', 'VIEW_CATALOG_UTENTI', 'VIEW_UTENTI_DA_CONSOLIDARE'],
     children: [
       {
         name: 'Utenti da Consolidare',
         url: '/catalogo/admin-utenti',
         icon: 'fa fa-address-book-o',
+        key: 'VIEW_UTENTI_DA_CONSOLIDARE'
       },
       {
         name: 'Catalogo KPI',
@@ -111,20 +112,20 @@ export const navItems: NavData[] = [
       },
     ]
   },
-  {
+  /*{ // TEMP HIDDEN
     name: 'Report',
     url: '/coming-soon',
     icon: 'fa fa-files-o',
     key: [''],
     children: [
-      {
+      { // TEMP HIDDEN
         name: 'WorkFlow Reminder',
         url: '/coming-soon',
         icon: 'fa fa-check-circle-o',
         key: '',
       }
     ]
-  },
+  },*/
   {
     name: 'KPI Certificati',
     url: '/archivedkpi',
@@ -155,7 +156,7 @@ export const navItems: NavData[] = [
     name: 'Configurazione',
     url: '/coming-soon',
     icon: 'fa fa-gear',
-    key: ['VIEW_CONFIGURATIONS','VIEW_WORKLOAD_CONFIGURATIONS'],
+    key: ['VIEW_CONFIGURATIONS','VIEW_WORKFLOW_CONFIGURATIONS'],
     children: [
       {
         name: 'Generali',
@@ -164,29 +165,51 @@ export const navItems: NavData[] = [
         key: 'VIEW_CONFIGURATIONS'
       },
       {
-        name: 'Workload',
-        url: '/workload',
-        icon: 'fa fa-gear',
-        key: 'VIEW_WORKLOAD_CONFIGURATIONS'
+        name: 'Avanzate',
+        url: '/tconfiguration/advanced',
+        icon: 'fa fa-check-circle-o',
+        key: 'VIEW_CONFIGURATIONS'
       },
+      /*{ // maybe not needed
+        name: 'Workflow',
+        url: '/workflow-conf',
+        icon: 'fa fa-gear',
+        key: 'VIEW_WORKFLOW_CONFIGURATIONS'
+      },*/
+      /*{ // TEMP HIDDEN
+        title: true,
+        name: 'Workflow',
+        key: 'VIEW_WORKFLOW_CONFIGURATIONS'
+      },*/
       {
-        name: 'Group',
+        name: 'SDM Gruppi',
         url: '/sdmgroup',
         icon: 'fa fa-gear',
-        key: 'VIEW_CONFIGURATIONS'
+        key: 'VIEW_WORKFLOW_CONFIGURATIONS'
       },
       {
-        name: 'Status',
+        name: 'SDM Ticket Status',
         url: '/sdmstatus',
         icon: 'fa fa-gear',
-        key: 'VIEW_CONFIGURATIONS'
+        key: 'VIEW_WORKFLOW_CONFIGURATIONS'
       },
+      /*{ // TEMP HIDDEN
+        title: true,
+        name: 'Profilazione',
+        key: 'VIEW_CONFIGURATIONS'
+      },*/
       {
-        name: 'User Profiling',
-        url: '/userprofiling',
+        name: 'Ruoli Utente',
+        url: '/userprofiling/rolepermissions',
         icon: 'fa fa-gear',
         key: 'VIEW_CONFIGURATIONS'
-      }
+      }, 
+      {
+        name: 'Profilazione Utente',
+        url: '/coming-soon',
+        icon: 'fa fa-gear',
+        key: 'VIEW_CONFIGURATIONS'
+      },
     ]
   },
   {
@@ -195,7 +218,7 @@ export const navItems: NavData[] = [
   },
   {
     title: true, 
-    name: 'Version 1.1.0',
+    name: 'Version 1.2.2',
     class: 'class-version-nav',
     key: 'alwaysShow'
   },

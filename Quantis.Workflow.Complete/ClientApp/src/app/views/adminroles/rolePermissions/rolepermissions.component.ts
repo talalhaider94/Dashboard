@@ -1,6 +1,6 @@
 import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { DataTableDirective } from 'angular-datatables';
-import { ApiService } from '../../_services/api.service';
+import { ApiService } from '../../../_services/api.service';
 import { Subject } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 
@@ -9,14 +9,15 @@ var $this;
 
 
 @Component({
-  templateUrl: './sdmgroup.component.html'
+  templateUrl: './rolepermissions.component.html'
 })
 
-export class SdmGroupComponent implements OnInit {
+export class RolePermissionsComponent implements OnInit {
   @ViewChild('ConfigurationTable') block: ElementRef;
-  // @ViewChild('searchCol1') searchCol1: ElementRef;
+  @ViewChild('searchCol1') searchCol1: ElementRef;
   @ViewChild(DataTableDirective) private datatableElement: DataTableDirective;
-  category_id : number = 0;
+  name: any = '';
+  code: any =  '';
 
   dtOptions: DataTables.Settings = {
     language: {
@@ -44,27 +45,26 @@ export class SdmGroupComponent implements OnInit {
   };
 
   modalData = {
-    id: '',
-    handle: '',
+    key: '',
+    value: '',
+    owner: '',
+    isenable: true,
+    description: '',
+  };
+
+  addData = {
     name: '',
-    step: '',
-    category_id: 0
+    code: ''
   };
 
   dtTrigger: Subject<any> = new Subject();
   ConfigTableBodyData: any = [
     {
-      handle: 'handle',
-      name: 'name',
-      step: 1,
-      category: 'category'
-    }
-  ]
-
-  customersKP: any = [
-    {
-      key: '',
-      value: ''
+      key: 'key',
+      value: 'value',
+      owner: 'owner',
+      isenable: true,
+      description: 'description',
     }
   ]
 
@@ -74,43 +74,52 @@ export class SdmGroupComponent implements OnInit {
   ) {
     $this = this;
   }
-  public handle: any;
-  public name: any;
-  public step: any;
-  public category: any;
 
   ngOnInit() {
   }
 
   populateModalData(data) {
-    this.modalData.id = data.id;
-    this.modalData.handle = data.handle;
-    this.modalData.name = data.name;
-    this.modalData.step = data.step;
+    this.modalData.key = data.key;
+    this.modalData.owner = data.owner;
+    this.modalData.value = data.value;
+    this.modalData.isenable = data.isenable;
+    this.modalData.description = data.description;
   }
 
-  updateConfig() {
-    this.modalData.category_id = this.category_id;
+  addRole() {
+    this.addData.name = this.name;
+    this.addData.code = this.code;
     this.toastr.info('Valore in aggiornamento..', 'Info');
-    this.apiService.updateSDMGroupConfig(this.modalData).subscribe(data => {
-      this.getCOnfigurations(); // this should refresh the main table on page
-      this.toastr.success('Valore Aggiornato', 'Success');
-      $('#configModal').modal('toggle').hide();
+    this.apiService.addRole(this.addData).subscribe(data => {
+        this.getCOnfigurations(); // this should refresh the main table on page
+        this.toastr.success('Valore Aggiornato', 'Success');
+        $('#addConfigModal').modal('toggle').hide();
     }, error => {
-      this.toastr.error('Errore durante update.', 'Error');
-      $('#configModal').modal('toggle').hide();
+        this.toastr.error('Errore durante update.', 'Error');
+        $('#addConfigModal').modal('toggle').hide();
+    });
+  }
+
+  
+  deleteAdminRole(data) {
+    this.toastr.info('Valore in aggiornamento..', 'Confirm');
+    this.apiService.deleteRole(data.roleId).subscribe(data => {
+      this.getCOnfigurations(); // this should refresh the main table on page
+      this.toastr.success('Record Deleted', 'Success');
+    }, error => {
+      this.toastr.error('Errore in record deletion.', 'Error');
       });
   }
 
-  deleteSDMRow(data) {
-    this.toastr.info('Valore in aggiornamento..', 'Confirm');
-    this.apiService.deleteSDMGroupConfiguration(data.id).subscribe(data => {
+  updateConfig() {
+    this.toastr.info('Valore in aggiornamento..', 'Info');
+    this.apiService.updateConfig(this.modalData).subscribe(data => {
       this.getCOnfigurations(); // this should refresh the main table on page
       this.toastr.success('Valore Aggiornato', 'Success');
-      // $('#configModal').modal('toggle').hide();
+      $('#configModal').modal('toggle').hide();
     }, error => {
       this.toastr.error('Errore durante update.', 'Error');
-      // $('#configModal').modal('toggle').hide();
+      $('#configModal').modal('toggle').hide();
       });
   }
 
@@ -120,12 +129,7 @@ export class SdmGroupComponent implements OnInit {
 
     this.setUpDataTableDependencies();
     this.getCOnfigurations();
-    this.getCustomersKP();
 
-    /*this.apiService.getConfigurations().subscribe((data:any)=>{
-      this.ConfigTableBodyData = data;
-      this.rerender();
-    });*/
   }
 
   ngOnDestroy(): void {
@@ -143,22 +147,15 @@ export class SdmGroupComponent implements OnInit {
     });
   }
 
-  // getConfigTableRef(datatableElement: DataTableDirective): any {
-  //   return datatableElement.dtInstance;
-  //   // .then((dtInstance: DataTables.Api) => {
-  //   //     console.log(dtInstance);
-  //   // });
-  // }
-
   setUpDataTableDependencies(){
-    // $(this.searchCol1.nativeElement).on( 'keyup', function () {
-    //   $this.datatableElement.dtInstance.then((datatable_Ref: DataTables.Api) => {
-    //   datatable_Ref
-    //     .columns( 0 )
-    //     .search( this.value )
-    //     .draw();
-    // });
-    // });
+    $(this.searchCol1.nativeElement).on( 'keyup', function () {
+      $this.datatableElement.dtInstance.then((datatable_Ref: DataTables.Api) => {
+      datatable_Ref
+        .columns( 0 )
+        .search( this.value )
+        .draw();
+    });
+    });
 
   }
 
@@ -169,19 +166,10 @@ export class SdmGroupComponent implements OnInit {
   }
 
   getCOnfigurations() {
-    this.apiService.getSDMGroupConfigurations().subscribe((data) =>{
+    this.apiService.getAllRoles().subscribe((data) =>{
       this.ConfigTableBodyData = data;
       console.log('Configs ', data);
       this.rerender();
     });
   }
-
-  getCustomersKP() {
-    this.apiService.getCustomersKP().subscribe((data) =>{
-      this.customersKP = data;
-      console.log('CustomersKP ', data);
-      this.rerender();
-    });
-  }
-  
 }

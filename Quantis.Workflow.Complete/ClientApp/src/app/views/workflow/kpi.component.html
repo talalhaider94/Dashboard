@@ -5,22 +5,19 @@
         <div class="card-body">
           <div class="row">
             <div class="col-sm-12 mb-3">
-              <button type="button" class="btn btn-danger mr-2" data-toggle="modal"
+              <button type="button" [disabled]="allTickets.length === 0" class="btn btn-danger mr-2" data-toggle="modal"
                 (click)="rejectTicket()">Rifiuta</button>
-              <button type="button" class="btn btn-success" data-toggle="modal"
+              <button type="button" [disabled]="allTickets.length === 0" class="btn btn-success" data-toggle="modal"
                 (click)="approveTicket()">Approva</button>
             </div>
           </div>
           <div class="table-responsive">
-            <!-- <form [formGroup]="verificaCheckBoxForm"> -->
             <table datatable [dtOptions]="dtOptions" [dtTrigger]="dtTrigger"
               class="table table-responsive-sm table-hover table-outline mb-0 text-center">
 
               <thead class="thead-light">
                 <tr>
                   <th>
-                    <!-- <input formControlName="selectAllTickets" value="selectAllTickets"
-                        (change)="onselectAllCheckboxChange($event)" type="checkbox"> -->
                     <input type="checkbox" [(ngModel)]="selectedAll" (change)="selectAll();" />
                   </th>
                   <th class="d-none">ID</th>
@@ -40,7 +37,7 @@
               </thead>
               <tbody>
                 <tr *ngIf="allTickets.length === 0 && !loading">
-                  <td colspan="13"><strong>No tickets found.</strong></td>
+                  <td colspan="13"><strong>Nessun Ticket Trovato.</strong></td>
                 </tr>
                 <tr *ngIf="loading" class="text-center">
                   <td colspan="13">
@@ -50,8 +47,6 @@
                 <tr *ngFor="let ticket of allTickets; let i = index">
                   <td>
                     <input type="checkbox" [(ngModel)]="ticket.selected" (change)="checkIfAllSelected();">
-                    <!-- <input [(ngModel)]="value" formControlName="selectTicket" value="{{ticket.id}}"
-                        (change)="onCheckboxChange(ticket,$event)" type="checkbox"> -->
                   </td>
                   <td class="d-none">{{ ticket.id }} </td>
                   <td>{{ ticket.ref_num || 'N/A' }}</td>
@@ -118,7 +113,6 @@
                 </tr>
               </tbody>
             </table>
-            <!-- </form> -->
           </div>
         </div>
       </div>
@@ -149,7 +143,7 @@
             </thead>
             <tbody>
               <tr *ngIf="getTicketHistories.length === 0 && !loading">
-                <td colspan="2"><strong>No tickets found.</strong></td>
+                <td colspan="2"><strong>Nessun ticket trovato.</strong></td>
               </tr>
               <tr *ngIf="loading" class="text-center">
                 <td colspan="2">
@@ -177,7 +171,7 @@
   <div class="modal-dialog modal-info modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h4 class="modal-title">Attachments</h4>
+        <h4 class="modal-title">Allegati</h4>
         <button type="button" class="close" (click)="infoModal.hide()" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -201,7 +195,7 @@
               </thead>
               <tbody>
                 <tr *ngIf="uploader.queue.length === 0">
-                  <td colspan="2">nessun file da caricare</td>
+                  <td colspan="2">Nessun file da caricare</td>
                 </tr>
                 <tr *ngFor="let item of uploader.queue">
                   <td>{{ item?.file?.name }}</td>
@@ -232,7 +226,7 @@
             </thead>
             <tbody>
               <tr *ngIf="getTicketAttachments.length === 0 && !loading">
-                <td colspan="3"><strong>No attachments found.</strong></td>
+                <td colspan="3"><strong>Nessun allegato.</strong></td>
               </tr>
               <tr *ngIf="loading" class="text-center">
                 <td colspan="3">
@@ -268,7 +262,7 @@
   <div class="modal-dialog modal-success modal-md" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h4 class="modal-title">Approve</h4>
+        <h4 class="modal-title">Approva</h4>
         <button type="button" class="close" (click)="approveModal.hide()" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -277,7 +271,7 @@
         <!-- APPROVE model body -->
         <form [formGroup]="approveForm" (ngSubmit)="approveFormSubmit()">
           <div class="input-group mb-3">
-            <textarea formControlName="description" class="form-control" placeholder="Description"
+            <textarea formControlName="description" class="form-control" placeholder="Descrizione"
               autocomplete="description" rows="3"></textarea>
           </div>
           <div class="row">
@@ -302,7 +296,7 @@
   <div class="modal-dialog modal-danger modal-md" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h4 class="modal-title">Reject</h4>
+        <h4 class="modal-title">Rifiuta</h4>
         <button type="button" class="close" (click)="rejectModal.hide()" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -312,14 +306,13 @@
         <form [formGroup]="rejectForm" (ngSubmit)="rejectFormSubmit()">
           <div class="input-group mb-3">
             <textarea formControlName="description" class="form-control"
-              [ngClass]="{ 'is-invalid': submitted && rejectValues.description.errors }" placeholder="Description"
+              [ngClass]="{ 'is-invalid': submitted && rejectValues.description.errors }" placeholder="Descrizione"
               autocomplete="description" rows="3"></textarea>
 
           </div>
           <!-- display description error -->
           <span class="text-danger mb-3"
-            *ngIf="submitted && rejectValues.description.errors && rejectValues.description.errors.required">Description
-            is required</span>
+            *ngIf="submitted && rejectValues.description.errors && rejectValues.description.errors.required">Giustificativo obbligatorio</span>
           <div class="row">
             <div class="col-6">
               <button [disabled]="loading" type="submit" class="btn btn-primary px-4">

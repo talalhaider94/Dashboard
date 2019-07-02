@@ -1,11 +1,7 @@
 import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
-import { DataTableDirective } from 'angular-datatables';
+import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../../_services/api.service';
-import { Subject } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
-
-declare var $;
-var $this;
 
 
 @Component({
@@ -13,163 +9,73 @@ var $this;
 })
 
 export class RolePermissionsComponent implements OnInit {
-  @ViewChild('ConfigurationTable') block: ElementRef;
-  @ViewChild('searchCol1') searchCol1: ElementRef;
-  @ViewChild(DataTableDirective) private datatableElement: DataTableDirective;
-  name: any = '';
-  code: any =  '';
 
-  dtOptions: DataTables.Settings = {
-    language: {
-      processing: "Elaborazione...",
-      search: "Cerca:",
-      lengthMenu: "Visualizza _MENU_ elementi",
-      info: "Vista da _START_ a _END_ di _TOTAL_ elementi",
-      infoEmpty: "Vista da 0 a 0 di 0 elementi",
-      infoFiltered: "(filtrati da _MAX_ elementi totali)",
-      infoPostFix: "",
-      loadingRecords: "Caricamento...",
-      zeroRecords: "La ricerca non ha portato alcun risultato.",
-      emptyTable: "Nessun dato presente nella tabella.",
-      paginate: {
-        first: "Primo",
-        previous: "Precedente",
-        next: "Seguente",
-        last: "Ultimo"
-      },
-      aria: {
-        sortAscending: ": attiva per ordinare la colonna in ordine crescente",
-        sortDescending: ":attiva per ordinare la colonna in ordine decrescente"
-      }
-    }
+  urlId = 0;
+  gatheredData = {
+    roleId: 0,
+    roleName: '',
+    permissionsList: [],
+    assignedPermissions: []
   };
-
-  modalData = {
-    key: '',
-    value: '',
-    owner: '',
-    isenable: true,
-    description: '',
-  };
-
-  addData = {
-    name: '',
-    code: ''
-  };
-
-  dtTrigger: Subject<any> = new Subject();
-  ConfigTableBodyData: any = [
-    {
-      key: 'key',
-      value: 'value',
-      owner: 'owner',
-      isenable: true,
-      description: 'description',
-    }
-  ]
-
+  public roleName = '';
   constructor(
     private apiService: ApiService,
     private toastr: ToastrService,
+    private route: ActivatedRoute
   ) {
-    $this = this;
   }
 
   ngOnInit() {
+    //this.gatheredData.roleId = +this.route.snapshot.paramMap.get('id');
+    this.route.params.subscribe((params) => {
+      this.gatheredData.roleId = parseInt(params['id']) || 0;
+      this.gatheredData.roleName = params['name'] || '';
+      //console.log(this.gatheredData.roleId);
+      //console.log(this.gatheredData.roleName)
+      if(this.gatheredData.roleId){
+        this.getAllPermissions();
+      } else {
+        this.toastr.warning('Id del ruolo non valido', 'Warning');
+      }
+    });
+    this.roleName = this.gatheredData.roleName;
+    
   }
 
-  populateModalData(data) {
-    this.modalData.key = data.key;
-    this.modalData.owner = data.owner;
-    this.modalData.value = data.value;
-    this.modalData.isenable = data.isenable;
-    this.modalData.description = data.description;
+  getAllPermissions(){
+    this.apiService.getAllPermisisons().subscribe( data => {
+      this.gatheredData.permissionsList = data;
+      console.log(data);
+      this.getPermissionsByRoldId();
+    });
   }
-
-  addRole() {
-    this.addData.name = this.name;
-    this.addData.code = this.code;
-    this.toastr.info('Valore in aggiornamento..', 'Info');
-    this.apiService.addRole(this.addData).subscribe(data => {
-        this.getCOnfigurations(); // this should refresh the main table on page
-        this.toastr.success('Valore Aggiornato', 'Success');
-        $('#addConfigModal').modal('toggle').hide();
-    }, error => {
-        this.toastr.error('Errore durante update.', 'Error');
-        $('#addConfigModal').modal('toggle').hide();
+  getPermissionsByRoldId(){
+    this.apiService.getPermissionsByRoldId(this.gatheredData.roleId).subscribe( data => {
+      this.gatheredData.assignedPermissions = data;
     });
   }
 
-  
-  deleteAdminRole(data) {
-    this.toastr.info('Valore in aggiornamento..', 'Confirm');
-    this.apiService.deleteRole(data.roleId).subscribe(data => {
-      this.getCOnfigurations(); // this should refresh the main table on page
-      this.toastr.success('Record Deleted', 'Success');
-    }, error => {
-      this.toastr.error('Errore in record deletion.', 'Error');
-      });
+  onPermissionSelectDeselect($event){
+    //console.log($event, this.gatheredData.assignedPermissions);
   }
 
-  updateConfig() {
-    this.toastr.info('Valore in aggiornamento..', 'Info');
-    this.apiService.updateConfig(this.modalData).subscribe(data => {
-      this.getCOnfigurations(); // this should refresh the main table on page
-      this.toastr.success('Valore Aggiornato', 'Success');
-      $('#configModal').modal('toggle').hide();
-    }, error => {
-      this.toastr.error('Errore durante update.', 'Error');
-      $('#configModal').modal('toggle').hide();
+  saveAssignedPermissions(){
+    if(this.gatheredData.roleId) {
+      let dataToPost = {Id: this.gatheredData.roleId, Ids:[]};
+      this.gatheredData.assignedPermissions.forEach((value, idx) => {
+        dataToPost.Ids.push(value.id);
       });
-  }
-
-  // tslint:disable-next-line:use-life-cycle-interface
-  ngAfterViewInit() {
-    this.dtTrigger.next();
-
-    this.setUpDataTableDependencies();
-    this.getCOnfigurations();
+      console.log(dataToPost);
+      this.apiService.assignPermissionsToRoles(dataToPost).subscribe(data => {
+        this.toastr.success('Permessi Assegnati', 'Success');
+      }, error => {
+        this.toastr.error('Errore durante l\'assegnazione dei permessi', 'Error');
+      });
+    }
 
   }
 
   ngOnDestroy(): void {
-    // Do not forget to unsubscribe the event
-    this.dtTrigger.unsubscribe();
   }
 
-  rerender(): void {
-    this.datatableElement.dtInstance.then((dtInstance: DataTables.Api) => {
-      // Destroy the table first
-      dtInstance.destroy();
-      // Call the dtTrigger to rerender again
-      this.dtTrigger.next();
-      this.setUpDataTableDependencies();
-    });
-  }
-
-  setUpDataTableDependencies(){
-    $(this.searchCol1.nativeElement).on( 'keyup', function () {
-      $this.datatableElement.dtInstance.then((datatable_Ref: DataTables.Api) => {
-      datatable_Ref
-        .columns( 0 )
-        .search( this.value )
-        .draw();
-    });
-    });
-
-  }
-
-  strip_tags(html) {
-    var tmp = document.createElement("div");
-    tmp.innerHTML = html;
-    return tmp.textContent||tmp.innerText;
-  }
-
-  getCOnfigurations() {
-    this.apiService.getAllRoles().subscribe((data) =>{
-      this.ConfigTableBodyData = data;
-      console.log('Configs ', data);
-      this.rerender();
-    });
-  }
 }

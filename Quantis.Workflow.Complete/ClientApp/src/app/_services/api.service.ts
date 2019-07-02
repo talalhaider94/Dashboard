@@ -95,6 +95,16 @@ export class ApiService {
     const addrole = `${environment.API_URL}/information/AddUpdateRole`;
     return this.http.post(addrole,data, Headers.setTokenHeaders('POST'));
   }
+
+  addSDMGroup(data): Observable<any> {
+    const addSDMGroup = `${environment.API_URL}/information/AddUpdateSDMGroupConfiguration`;
+    return this.http.post(addSDMGroup,data, Headers.setTokenHeaders('POST'));
+  }
+  
+  addSDMStatus(data): Observable<any> {
+    const addSDMStatus = `${environment.API_URL}/information/AddUpdateSDMStatusConfiguration`;
+    return this.http.post(addSDMStatus,data, Headers.setTokenHeaders('POST'));
+  }
   
   addConfig(data): Observable<any> {
     const addConfig = `${environment.API_URL}/information/AddUpdateBasicConfiguration`;
@@ -110,6 +120,16 @@ export class ApiService {
     const deleteroles = `${environment.API_URL}/information/DeleteRole/${roleId}`;
     return this.http.get(deleteroles, Headers.setTokenHeaders('POST'));
   }
+
+  getAllPermisisons(): Observable<any> {
+    const getAllPermisisonsEndPoint = `${environment.API_URL}/information/GetAllPermissions`;
+    return this.http.get(getAllPermisisonsEndPoint, Headers.setTokenHeaders('GET'));
+  }
+  getPermissionsByRoldId(roleId): Observable<any> {
+    const getPermissionsByRoldIdEndPoint = `${environment.API_URL}/information/GetPermissionsByRoleID/?roleId=${roleId}`;
+    return this.http.get(getPermissionsByRoldIdEndPoint, Headers.setTokenHeaders('GET'));
+  }
+
 
   updateConfig(config) {
     return this.http.post(`${environment.API_URL}/information/AddUpdateBasicConfiguration`, config, Headers.setTokenHeaders('POST'))
@@ -190,5 +210,16 @@ export class ApiService {
         )
       );
   }
+
+  assignPermissionsToRoles(postData) {
+    return this.http.post(`${environment.API_URL}/information/AssignPermissionsToRoles`, postData, Headers.setTokenHeaders('POST'))
+    .pipe(
+      tap(
+        data => data,
+        error => error
+      )
+    );
+  }
+
 
 }

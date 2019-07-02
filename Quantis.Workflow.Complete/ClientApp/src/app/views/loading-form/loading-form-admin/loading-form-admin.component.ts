@@ -170,7 +170,7 @@ export class LoadingFormAdminComponent implements OnInit {
 
     // }
     datiModelConfronto.forEach((element, index) => {
-      if (element.campo1.name != null && element.segno != null && element.campo2.name != null) {
+      if (!!element.campo1 && !!element.campo1.name && !!element.segno && !!element.campo2 && !!element.campo2.name) {
         confrontoAppoggio = new ControlloConfronto;
         confrontoAppoggio.campo1 = element.campo1.name;
         confrontoAppoggio.segno = element.segno;
@@ -252,7 +252,6 @@ export class LoadingFormAdminComponent implements OnInit {
     console.log('checkConfronto segno', segno);
     console.log('checkConfronto elemento1', elemento1);
     console.log('checkConfronto elemento2', elemento2);
-    debugger;
     switch (segno) {
       case '=':
         if (val1 == val2) {
@@ -348,15 +347,17 @@ export class LoadingFormAdminComponent implements OnInit {
         let formbody = JSON.parse(data.form_body);
         let formRules = formbody.formRules;
         let comparisonRules = formbody.comparisonRules;
-        formRules.forEach( (rule, index) => {
-          if(rule.type == 'time') {
-            this.maxDate[index] = rule.rule.max;
-            this.minDate[index] = rule.rule.min;
-          } else {
-            this.numeroMax[index] = rule.rule.max;
-            this.numeroMin[index] = rule.rule.min;
-          }
-        });
+        if(formRules) {
+          formRules.forEach( (rule, index) => {
+            if(rule.type == 'time') {
+              this.maxDate[index] = rule.rule.max;
+              this.minDate[index] = rule.rule.min;
+            } else {
+              this.numeroMax[index] = rule.rule.max;
+              this.numeroMin[index] = rule.rule.min;
+            }
+          });
+        }
 
         // JSON.parse(data.form_body).forEach((element, index) => {
         //   console.log(element);

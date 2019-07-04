@@ -55,6 +55,10 @@ export class AdminRolesComponent implements OnInit {
     code: ''
   };
 
+  filters = {
+    searchUsersText: ''
+  }
+
   dtTrigger: Subject<any> = new Subject();
   ConfigTableBodyData: any = [
     {
@@ -63,6 +67,12 @@ export class AdminRolesComponent implements OnInit {
       owner: 'owner',
       isenable: true,
       description: 'description',
+    }
+  ]
+
+  UsersTableBodyData: any = [
+    {
+      name: ''
     }
   ]
 
@@ -80,6 +90,12 @@ export class AdminRolesComponent implements OnInit {
     this.modalData.id = data.id;
     this.modalData.name = data.name;
     this.modalData.code = data.code;
+  }
+  
+  populateUsersData(data) {
+    this.modalData.id = data.id;
+    this.modalData.name = data.name;
+    this.getUsersList(this.modalData.id);
   }
 
   addRole() {
@@ -166,6 +182,14 @@ export class AdminRolesComponent implements OnInit {
       this.ConfigTableBodyData = data;
       console.log('Configs ', data);
       this.rerender();
+    });
+  }
+  
+  getUsersList(roleId) {
+    this.apiService.getUsersByRole(roleId).subscribe((data) =>{
+      this.UsersTableBodyData = data;
+      console.log('Users ', data);
+      //this.rerender();
     });
   }
 }

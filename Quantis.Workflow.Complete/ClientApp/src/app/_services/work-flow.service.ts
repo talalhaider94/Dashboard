@@ -65,10 +65,11 @@ export class WorkFlowService {
     return this.http.get(escalateTicketEndPoint, { headers: Headers.setTokenHeaders('GET').headers, params });
   }
   
-  getTicketsVerificationByUserVerifica (): Observable<any>{
+  getTicketsVerificationByUserVerifica (period: string): Observable<any>{
     const ticketVerificationEndPoint = `${environment.API_URL}/sdm/GetTicketsVerificationByUser`;
-    // return this.http.get('assets/tempData/getalltickets.json');
-    return this.http.get(ticketVerificationEndPoint, Headers.setTokenHeaders('GET'));
+    //return this.http.get('https://api.myjson.com/bins/ktkyz');
+    const  params = new  HttpParams().set('period', period);
+    return this.http.get(ticketVerificationEndPoint,{ headers: Headers.setTokenHeaders('GET').headers, params });
   }
   
   getTicketsSearchByUserRecerca (): Observable<any>{
@@ -79,8 +80,8 @@ export class WorkFlowService {
 
   uploadAttachmentToTicket(ticketId, docName, docContent): Observable<any> {
     const submitAttachmentEndPoint = `${environment.API_URL}/sdm/UploadAttachmentToTicket`;
-    const  params = new  HttpParams().set('ticketId', ticketId).set('docName', docName).set('docContent', docContent);
-    return this.http.get(submitAttachmentEndPoint, { headers: Headers.setTokenHeaders('PUT').headers, params });
+    const  params = { TicketId: ticketId, AttachmentName: docName, AttachmentContent: docContent };
+    return this.http.post(submitAttachmentEndPoint, params, {observe: 'response', headers: Headers.setHeaders('POST').headers});
   }
 
 }

@@ -20,9 +20,10 @@ export class UserProfilingComponent implements OnInit {
       id: 'id',//'nodeId',
       text: 'name',//'nodeText',
       child: 'children',//'nodeChild'
+      title: 'name'
   };
 
-
+  innerMostChildrenNodeIds = [];
   gatheredData = {
     usersList: [],
     rolesList: [],
@@ -57,6 +58,7 @@ export class UserProfilingComponent implements OnInit {
       console.log('getCatalogoUsers ==> ', res);
       this.gatheredData.usersList = res;
       this.loading.roles = false;
+      this.selectedData.userid = res.ca_bsi_user_id;
     });
 
 
@@ -65,6 +67,15 @@ export class UserProfilingComponent implements OnInit {
       this.treeFields.dataSource = data;//[].concat(data);
       this.isTreeLoaded = true;
     });
+
+    // if(this.selectedData.userid){
+    //   this.apiService.getGlobalRulesByUserId(this.selectedData.userid).subscribe(data=>{
+    //     console.log('getGlobalRulesByUserId ==> ', data);
+    //     this.treeFields.dataSource = data;//[].concat(data);
+    //     this.isTreeLoaded = true;
+    //     this.selectedData.checked = data;
+    //   });
+    // }
   
   }
 
@@ -77,21 +88,48 @@ export class UserProfilingComponent implements OnInit {
     if(this.selectedData.userid){
       this.apiService.getGlobalRulesByUserId(this.selectedData.userid).subscribe(data=>{
         console.log('getGlobalRulesByUserId ==> ', data);
-        //selectedData.checked = data;
+        this.selectedData.checked = data;
       });
     }
   }
 
   saveAssignedPermissions(){
+    console.log(this.selectedData);
     if(this.selectedData.userid) {
-      let dataToPost = {Id: this.selectedData.userid, Ids: this.permissionsTree.checkedNodes};
+      this.traverseNodes(this.treeFields.dataSource);
+      //console.log('this.innerMostChildrenNodeIds => ', this.innerMostChildrenNodeIds);
+      let dataToPost = {Id: this.selectedData.userid, Ids: this.innerMostChildrenNodeIds};
+      console.log(dataToPost);
       // this.permissionsTree.checkedNodes.forEach((value, idx) => {
       //   dataToPost.Ids.push(value.id)
       // });
       this.apiService.assignGlobalRulesToUserId(dataToPost).subscribe(data => {
         this.toastr.success('Saved', 'Success');
+        this.apiService.getGlobalRulesByUserId(this.selectedData.userid).subscribe(data=>{
+          console.log('getGlobalRulesByUserId ==> ', data);
+          this.selectedData.checked = data;
+        });
       }, error => {
         this.toastr.error('Not Saved', 'Error');
+      });
+    }
+  }
+
+  syncSelectedNodesArray(event){
+    this.selectedData.checked = this.permissionsTree.checkedNodes;
+    //console.log(event);
+  }
+
+  traverseNodes(complexJson) {
+    if (complexJson) {
+      complexJson.forEach((item:any)=>{
+        if (item.children) {
+          this.traverseNodes(item.children);
+        } else {
+          if(this.permissionsTree.checkedNodes.includes(item.id.toString())){
+            this.innerMostChildrenNodeIds.push(item.id);
+          }
+        }
       });
     }
   }

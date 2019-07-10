@@ -11,11 +11,11 @@ let $this;
 
 
 @Component({
-  selector: 'app-catalogo-kpi',
-  templateUrl: './catalogo-kpi.component.html',
-  styleUrls: ['./catalogo-kpi.component.scss']
+  selector: 'app-admin-kpi',
+  templateUrl: './admin-kpi.component.html',
+  styleUrls: ['./admin-kpi.component.scss']
 })
-export class CatalogoKpiComponent implements OnInit {
+export class AdminKpiComponent implements OnInit {
 
   constructor(
     private apiService: ApiService,

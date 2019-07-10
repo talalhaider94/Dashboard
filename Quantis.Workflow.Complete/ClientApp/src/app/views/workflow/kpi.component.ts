@@ -11,6 +11,7 @@ import { FormGroup, FormBuilder, Validators } from '@angular/forms';
 import { Observable, forkJoin } from 'rxjs';
 import { FileUploader } from 'ng2-file-upload';
 import * as moment from 'moment';
+import { tick } from '@angular/core/src/render3';
 
 const URL = 'https://evening-anchorage-3159.herokuapp.com/api/';
 
@@ -19,6 +20,7 @@ let $this;
 
 @Component({
   templateUrl: './kpi.component.html',
+  styleUrls: ['./kpi.component.scss']
 })
 export class KPIComponent implements OnInit, OnDestroy {
 
@@ -26,7 +28,6 @@ export class KPIComponent implements OnInit, OnDestroy {
   @ViewChild('infoModal') public infoModal: ModalDirective;
   @ViewChild('approveModal') public approveModal: ModalDirective;
   @ViewChild('rejectModal') public rejectModal: ModalDirective;
-
   @ViewChild('monthSelect') monthSelect: ElementRef;
   @ViewChild('yearSelect') yearSelect: ElementRef;
 
@@ -51,7 +52,7 @@ export class KPIComponent implements OnInit, OnDestroy {
   selectedAll: any;
   monthOption;
   yearOption;
-
+  ticketsStatus: any = [];
   constructor(
     private router: Router,
     private workFlowService: WorkFlowService,
@@ -67,7 +68,7 @@ export class KPIComponent implements OnInit, OnDestroy {
   get rejectValues() { return this.rejectForm.controls; }
 
   ngOnInit() {
-    this.monthOption = moment().format('MM');
+    this.monthOption = moment().subtract(1, 'months').format('MM');
     this.yearOption = moment().format('YY');
     this.verificaCheckBoxForm = this.formBuilder.group({
       selectTicket: [''],
@@ -84,24 +85,18 @@ export class KPIComponent implements OnInit, OnDestroy {
     this.dtOptions = {
       pagingType: 'full_numbers',
       pageLength: 10,
-      destroy: true,
+      destroy: false, // check here.
       dom: 'Bfrtip',
       search: {
         caseInsensitive: true
       },
-      // rowCallback: (row: Node, data: any[] | Object, index: number) => {
-      //   const self = this;
-      //   $('td', row).unbind('click');
-      //   $('td', row).bind('click', () => {
-      //     self.selectedTickets.push(data);
-      //     console.log('DATA', data);
-      //   });
-      //   return row;
-      // },
-      // "fnDrawCallback": function( oSettings, iStart, iEnd, iMax, iTotal, sPre ) {
-      // },
-      // "fnInfoCallback": function( oSettings, iStart, iEnd, iMax, iTotal, sPre ) {
-      // },
+      "columnDefs": [{
+        "targets": 0,
+        "orderable": false,
+        "visible": true,
+        "searchable": false
+      },
+    ],
       buttons: [
         {
           extend: 'colvis',
@@ -140,19 +135,16 @@ export class KPIComponent implements OnInit, OnDestroy {
         }
       }
     };
-    this._getAllTickets();
+
   }
 
   _getAllTickets() {
-    this.workFlowService.getTicketsVerificationByUserVerifica().pipe(first()).subscribe(data => {
+    this.workFlowService.getTicketsVerificationByUserVerifica(`${this.monthOption}/${this.yearOption}`).pipe(first()).subscribe(data => {
       console.log('getTicketsVerificationByUserVerifica', data);
-      const appendSelectFale = data.map(ticket => ({ ...ticket, selected: false }));
-      this.allTickets = appendSelectFale.sort(function (a: any, b: any) {
-        a = a.period ? a.period.split("/") : '01/00'.split("/");
-        b = b.period ? b.period.split("/") : '01/00'.split("/");
-        return new Date(b[1], b[0], 1).getTime() - new Date(a[1], a[0], 1).getTime();
-      });
-      this.dtTrigger.next();
+      const appendSelectFalse = data.map(ticket => ({ ...ticket, selected: false }));
+      this.allTickets = appendSelectFalse;
+      //this.dtTrigger.next();
+      this.rerender();
       this.loading = false;
     }, error => {
       console.error('getTicketsVerificationByUserVerifica', error);
@@ -160,6 +152,27 @@ export class KPIComponent implements OnInit, OnDestroy {
     });
   }
 
+  onDataChange() {
+    //this.rerender();
+    this.loading = true;
+    this._getAllTickets();
+  }
+
+  ngAfterViewInit() {
+    // debugger
+    this.dtTrigger.next();
+    //this.setUpDataTableDependencies();
+    this._getAllTickets();
+  }
+  rerender(): void {
+    this.datatableElement.dtInstance.then((dtInstance: DataTables.Api) => {
+      // Destroy the table first
+      dtInstance.destroy();
+      // Call the dtTrigger to rerender again
+      this.dtTrigger.next();
+      //this.setUpDataTableDependencies();
+    });
+  }
   ticketActions(ticket) {
     this.loading = true;
     this.setActiveTicketId = +ticket.id;
@@ -226,7 +239,11 @@ export class KPIComponent implements OnInit, OnDestroy {
     const selectedTickets = this.allTickets.filter(ticket => ticket.selected);
     this.selectedTickets = selectedTickets;
     if (this.selectedTickets.length > 0) {
-      this.rejectModal.show();
+      if(this.selectedTickets.length === 1) {
+        this.rejectModal.show();
+      } else {
+        this.toastr.info('Please select only one ticket.');  
+      }
     } else {
       this.toastr.info('Please select a Ticket.');
     }
@@ -253,8 +270,27 @@ export class KPIComponent implements OnInit, OnDestroy {
     }
     forkJoin(observables).subscribe(data => {
       this.toastr.success('Ticket approved', 'Success');
+      console.log('approveFormSubmit', data);
+      if (data) {
+        this.ticketsStatus = data;
+        this.ticketsStatus.forEach(status => {
+          if(status.isbsistatuschanged) {
+            this.toastr.success('Success', 'BSI status true.');
+          } else {
+            this.toastr.error('Error', 'BSI status false.');
+          }
+          if(status.issdmstatuschanged){
+            this.toastr.success('Success', 'SDM status true');
+          } else {
+            this.toastr.success('Error', 'SDM status false');
+          }
+        });
+        this._getAllTickets();
+      }
+      this.approveModal.hide();
       this.loading = false;
     }, error => {
+      console.error('approveFormSubmit', error);
       this.toastr.error('Error while approving form', 'Error');
       this.loading = false;
     });
@@ -273,9 +309,29 @@ export class KPIComponent implements OnInit, OnDestroy {
         observables.push(this.workFlowService.transferTicketByID(ticket.id, ticket.status, description.value));
       }
       forkJoin(observables).subscribe(data => {
+        console.log('rejectFormSubmit', data);
         this.toastr.success('Ticket rejected', 'Success');
+        if (data) {
+          this.ticketsStatus = data;
+          this.ticketsStatus.forEach(status => {
+            if(status.isbsistatuschanged) {
+              this.toastr.success('Success', 'BSI status true.');
+            } else {
+              this.toastr.error('Error', 'BSI status false.');
+            }
+            if(status.issdmstatuschanged){
+              this.toastr.success('Success', 'SDM status true');
+            } else {
+              this.toastr.success('Error', 'SDM status false');
+            }
+          });
+          // show toastr on reject
+          this._getAllTickets();
+        }
+        this.rejectModal.hide();
         this.loading = false;
       }, error => {
+        console.error('rejectFormSubmit', error);
         this.toastr.error('Error while rejecting form', 'Error');
         this.loading = false;
       });
@@ -312,8 +368,17 @@ export class KPIComponent implements OnInit, OnDestroy {
           self.fileUploading = false;
           self.uploader.queue.pop();
           self.toastr.success(`${fileName} uploaded successfully.`);
-          if (data) {
-            self.workFlowService.getAttachmentsByTicket(self.setActiveTicketId);
+          if (data.status === 200 || data.status === 204) {
+                self.workFlowService.getAttachmentsByTicket(self.setActiveTicketId).pipe(first()).subscribe(data => {
+                  if (!!data) {
+                    self.getTicketAttachments = data;
+                    console.log('ticketAttachments', data);
+                  }
+                  self.loading = false;
+                }, error => {
+                  self.loading = false;
+                });
+
           }
         }, error => {
           console.error('uploadAttachmentToTicket ==>', error);
@@ -327,45 +392,41 @@ export class KPIComponent implements OnInit, OnDestroy {
 
   selectAll() {
     for (var i = 0; i < this.allTickets.length; i++) {
-      this.allTickets[i].selected = this.selectedAll;
+      if(!this.allTickets[i].isclosed) {
+        this.allTickets[i].selected = this.selectedAll;
+      }
     }
   }
 
   checkIfAllSelected() {
-    this.selectedAll = this.allTickets.every(function (ticket: any) {
+    const notClosedTickets = this.allTickets.filter(ticket => !ticket.isclosed);
+
+    this.selectedAll = notClosedTickets.every(function (ticket: any) {
       return ticket.selected == true;
     })
   }
 
   // search start
-  ngAfterViewInit() {
-    this.dtTrigger.next();
-    this.setUpDataTableDependencies();
-    this.rerender();
-  }
-  rerender(): void {
-    this.datatableElement.dtInstance.then((dtInstance: DataTables.Api) => {
-      // Destroy the table first
-      dtInstance.destroy();
-      // Call the dtTrigger to rerender again
-      this.dtTrigger.next();
-      this.setUpDataTableDependencies();
-    });
-  }
 
   setUpDataTableDependencies() {
 
     $this.datatableElement.dtInstance.then((datatable_Ref: DataTables.Api) => {
       datatable_Ref.columns(12).every(function () {
         const that = this;
-        $($this.monthSelect.nativeElement).on('change', function () { that.search($(this).val()).draw(); });
+        that.search(moment().subtract(1, 'months').format('MM/YY')).draw();
+        $($this.monthSelect.nativeElement).on('change', function () {
+          that.search(`${$(this).val()}/${$this.yearSelect.nativeElement.value}`).draw();
+        });
       });
     });
 
     $this.datatableElement.dtInstance.then((datatable_Ref: DataTables.Api) => {
       datatable_Ref.columns(12).every(function () {
         const that = this;
-        $($this.yearSelect.nativeElement).on('change', function () { that.search($(this).val()).draw(); });
+        that.search(moment().subtract(1, 'months').format('MM/YY')).draw();
+        $($this.yearSelect.nativeElement).on('change', function () {
+          that.search(`${$this.monthSelect.nativeElement.value}/${$(this).val()}`).draw();
+        });
       });
     });
 

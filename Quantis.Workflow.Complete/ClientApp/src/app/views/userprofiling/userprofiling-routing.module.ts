@@ -5,17 +5,17 @@ import { UserRolePermissionsComponent } from './UserRolePermissions/userRolePerm
 
 const routes: Routes = [
   {
-    path: '',
+    path: 'userpermissions',
     component: UserProfilingComponent,
     data: {
-      title: 'T Configurations'
+      title: 'Profilazione Utente'
     }
   },
   {
     path: 'rolepermissions',
     component: UserRolePermissionsComponent,
     data: {
-      title: 'Profilazione Utenti'
+      title: 'User Role Permissions'
     }
   }
 ];

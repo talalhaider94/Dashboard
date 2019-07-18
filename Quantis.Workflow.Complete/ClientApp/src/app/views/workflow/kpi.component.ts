@@ -1,18 +1,17 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
-import { Router, ActivatedRoute } from '@angular/router';
+import { Router } from '@angular/router';
 import { WorkFlowService, AuthService } from '../../_services';
-import { first } from 'rxjs/operators';
-import { Subject } from 'rxjs';
+import { first, delay, mergeMap, retryWhen } from 'rxjs/operators';
+import { Subject, Observable, of, throwError } from 'rxjs';
 import { DataTableDirective } from 'angular-datatables';
 import { ModalDirective } from 'ngx-bootstrap/modal';
 import { FileSaverService } from 'ngx-filesaver';
 import { ToastrService } from 'ngx-toastr';
 import { FormGroup, FormBuilder, Validators } from '@angular/forms';
-import { Observable, forkJoin } from 'rxjs';
+import { forkJoin } from 'rxjs';
 import { FileUploader } from 'ng2-file-upload';
 import * as moment from 'moment';
-import { tick } from '@angular/core/src/render3';
-
+import WorkFlowHelper from '../../_helpers/workflow';
 const URL = 'https://evening-anchorage-3159.herokuapp.com/api/';
 
 declare var $;
@@ -30,6 +29,7 @@ export class KPIComponent implements OnInit, OnDestroy {
   @ViewChild('rejectModal') public rejectModal: ModalDirective;
   @ViewChild('monthSelect') monthSelect: ElementRef;
   @ViewChild('yearSelect') yearSelect: ElementRef;
+  @ViewChild('statoKPISelect') statoKPISelect: ElementRef;
 
   submitted = false;
   allTickets: any = [];
@@ -52,6 +52,8 @@ export class KPIComponent implements OnInit, OnDestroy {
   selectedAll: any;
   monthOption;
   yearOption;
+  statoKPIOption;
+
   ticketsStatus: any = [];
   constructor(
     private router: Router,
@@ -70,6 +72,7 @@ export class KPIComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.monthOption = moment().subtract(1, 'months').format('MM');
     this.yearOption = moment().format('YY');
+    this.statoKPIOption = '';
     this.verificaCheckBoxForm = this.formBuilder.group({
       selectTicket: [''],
       selectAllTickets: ['']
@@ -96,7 +99,7 @@ export class KPIComponent implements OnInit, OnDestroy {
         "visible": true,
         "searchable": false
       },
-    ],
+      ],
       buttons: [
         {
           extend: 'colvis',
@@ -153,15 +156,13 @@ export class KPIComponent implements OnInit, OnDestroy {
   }
 
   onDataChange() {
-    //this.rerender();
     this.loading = true;
     this._getAllTickets();
   }
 
   ngAfterViewInit() {
-    // debugger
     this.dtTrigger.next();
-    //this.setUpDataTableDependencies();
+    this.setUpDataTableDependencies();
     this._getAllTickets();
   }
   rerender(): void {
@@ -170,7 +171,7 @@ export class KPIComponent implements OnInit, OnDestroy {
       dtInstance.destroy();
       // Call the dtTrigger to rerender again
       this.dtTrigger.next();
-      //this.setUpDataTableDependencies();
+      this.setUpDataTableDependencies();
     });
   }
   ticketActions(ticket) {
@@ -239,13 +240,13 @@ export class KPIComponent implements OnInit, OnDestroy {
     const selectedTickets = this.allTickets.filter(ticket => ticket.selected);
     this.selectedTickets = selectedTickets;
     if (this.selectedTickets.length > 0) {
-      if(this.selectedTickets.length === 1) {
+      if (this.selectedTickets.length === 1) {
         this.rejectModal.show();
       } else {
-        this.toastr.info('Please select only one ticket.');  
+        this.toastr.info('L’operazione di Rifiuto è consentita su un solo ticket');
       }
     } else {
-      this.toastr.info('Please select a Ticket.');
+      this.toastr.info('Selezionare almeno un ticket');
     }
   }
 
@@ -255,7 +256,7 @@ export class KPIComponent implements OnInit, OnDestroy {
     if (this.selectedTickets.length > 0) {
       this.approveModal.show();
     } else {
-      this.toastr.info('Please select a Ticket.');
+      this.toastr.info('Selezionare almeno un ticket');
     }
   }
 
@@ -266,7 +267,7 @@ export class KPIComponent implements OnInit, OnDestroy {
 
     let observables = new Array();
     for (let ticket of this.selectedTickets) {
-      observables.push(this.workFlowService.escalateTicketbyID(ticket.id, ticket.status, description.value));
+      observables.push(this.workFlowService.escalateTicketbyID(ticket.id, ticket.status, description.value || null));
     }
     forkJoin(observables).subscribe(data => {
       this.toastr.success('Ticket approved', 'Success');
@@ -274,15 +275,22 @@ export class KPIComponent implements OnInit, OnDestroy {
       if (data) {
         this.ticketsStatus = data;
         this.ticketsStatus.forEach(status => {
-          if(status.isbsistatuschanged) {
+          if (status.isbsistatuschanged) {
             this.toastr.success('Success', 'BSI status true.');
           } else {
             this.toastr.error('Error', 'BSI status false.');
           }
-          if(status.issdmstatuschanged){
+          if (status.issdmstatuschanged) {
             this.toastr.success('Success', 'SDM status true');
           } else {
             this.toastr.success('Error', 'SDM status false');
+          }
+          if (status.showarchivemsg) {
+            if (status.isarchive) {
+              this.toastr.success('Success', 'KPI archiviato con successo.');
+            } else {
+              this.toastr.success('Info', 'Archiviazione del KPI fallita.');
+            }
           }
         });
         this._getAllTickets();
@@ -314,15 +322,22 @@ export class KPIComponent implements OnInit, OnDestroy {
         if (data) {
           this.ticketsStatus = data;
           this.ticketsStatus.forEach(status => {
-            if(status.isbsistatuschanged) {
+            if (status.isbsistatuschanged) {
               this.toastr.success('Success', 'BSI status true.');
             } else {
               this.toastr.error('Error', 'BSI status false.');
             }
-            if(status.issdmstatuschanged){
+            if (status.issdmstatuschanged) {
               this.toastr.success('Success', 'SDM status true');
             } else {
               this.toastr.success('Error', 'SDM status false');
+            }
+            if (status.showarchivemsg) {
+              if (status.isarchive) {
+                this.toastr.success('Success', 'KPI archiviato con successo.');
+              } else {
+                this.toastr.success('Info', 'Archiviazione del KPI fallita.');
+              }
             }
           });
           // show toastr on reject
@@ -350,7 +365,7 @@ export class KPIComponent implements OnInit, OnDestroy {
         this._getUploadedFile(file);
       });
     } else {
-      this.toastr.info('Please upload a file');
+      this.toastr.info('Nessun documento da caricare');
     }
   }
 
@@ -363,21 +378,22 @@ export class KPIComponent implements OnInit, OnDestroy {
         let binaryString = readerEvent.target.result;
         let base64Data = btoa(binaryString);
         self.fileUploading = false;
-        self.workFlowService.uploadAttachmentToTicket(self.setActiveTicketId, fileName, base64Data).pipe().subscribe(data => {
+        self.workFlowService.uploadAttachmentToTicket(self.setActiveTicketId, fileName, base64Data).pipe(self.delayedRetries(10000, 3)).subscribe(data => {
           console.log('uploadAttachmentToTicket ==>', data);
           self.fileUploading = false;
-          self.uploader.queue.pop();
+          self.removeFileFromQueue(fileName);
+          // self.uploader.queue.pop();
           self.toastr.success(`${fileName} uploaded successfully.`);
           if (data.status === 200 || data.status === 204) {
-                self.workFlowService.getAttachmentsByTicket(self.setActiveTicketId).pipe(first()).subscribe(data => {
-                  if (!!data) {
-                    self.getTicketAttachments = data;
-                    console.log('ticketAttachments', data);
-                  }
-                  self.loading = false;
-                }, error => {
-                  self.loading = false;
-                });
+            self.workFlowService.getAttachmentsByTicket(self.setActiveTicketId).pipe(first()).subscribe(data => {
+              if (!!data) {
+                self.getTicketAttachments = data;
+                console.log('ticketAttachments', data);
+              }
+              self.loading = false;
+            }, error => {
+              self.loading = false;
+            });
 
           }
         }, error => {
@@ -392,7 +408,7 @@ export class KPIComponent implements OnInit, OnDestroy {
 
   selectAll() {
     for (var i = 0; i < this.allTickets.length; i++) {
-      if(!this.allTickets[i].isclosed) {
+      if (!this.allTickets[i].isclosed) {
         this.allTickets[i].selected = this.selectedAll;
       }
     }
@@ -411,26 +427,38 @@ export class KPIComponent implements OnInit, OnDestroy {
   setUpDataTableDependencies() {
 
     $this.datatableElement.dtInstance.then((datatable_Ref: DataTables.Api) => {
-      datatable_Ref.columns(12).every(function () {
+      datatable_Ref.columns(5).every(function () {
         const that = this;
-        that.search(moment().subtract(1, 'months').format('MM/YY')).draw();
-        $($this.monthSelect.nativeElement).on('change', function () {
-          that.search(`${$(this).val()}/${$this.yearSelect.nativeElement.value}`).draw();
+        $($this.statoKPISelect.nativeElement).on('change', function () {
+          that.search($(this).val()).draw();
         });
       });
     });
-
-    $this.datatableElement.dtInstance.then((datatable_Ref: DataTables.Api) => {
-      datatable_Ref.columns(12).every(function () {
-        const that = this;
-        that.search(moment().subtract(1, 'months').format('MM/YY')).draw();
-        $($this.yearSelect.nativeElement).on('change', function () {
-          that.search(`${$this.monthSelect.nativeElement.value}/${$(this).val()}`).draw();
-        });
-      });
-    });
-
   }
   //search end
 
+  formatDescriptionColumn(description) {
+    return WorkFlowHelper.formatDescription(description);
+  }
+
+  formatSummaryColumn(summary) {
+    return WorkFlowHelper.formatSummary(summary);
+  }
+  removeFileFromQueue(fileName: string) {
+    for (let i = 0; i < this.uploader.queue.length; i++) {
+      if (this.uploader.queue[i].file.name === fileName) {
+        this.uploader.queue[i].remove();
+        return;
+      }
+    }
+  }
+
+  delayedRetries(delayMs: number, maxRetry: number) {
+    let retries = maxRetry;
+    return (src: Observable<any>) => src.pipe(retryWhen((errors: Observable<any>) => errors.pipe(
+      delay(delayMs),
+      mergeMap(error => retries-- > 0 ? of(error) : throwError(`Tried to upload ${maxRetry} times. without success.`))
+    )
+    ))
+  }
 }

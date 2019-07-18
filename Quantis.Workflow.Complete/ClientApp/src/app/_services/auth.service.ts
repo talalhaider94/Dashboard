@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, from } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { BehaviorSubject, Observable, EMPTY } from 'rxjs';
+import { map, catchError, retry,shareReplay } from 'rxjs/operators';
 import * as sha256 from 'sha256';
 import {environment} from '../../environments/environment';
 import Headers from '../_helpers/headers';
@@ -31,7 +31,7 @@ export class AuthService {
     const loginEndPoint = `${environment.API_URL}/Data/Login?username=${username}&password=${hashedPassword}`;
     // Danial TODO: move headers code into custom HTTP Interceptor class
     return this.http.get<any>(loginEndPoint, Headers.setHeaders('GET'))
-        .pipe(map(user => {
+        .pipe(retry(2), map(user => {
           if (!!user && user.token) {
                 user.last_action = Date.now(); // temp
                 console.log(user);
@@ -39,7 +39,12 @@ export class AuthService {
                 this.currentUserSubject.next(user);
             }
             return user;
-        }));
+        }),
+        // catchError(() => {
+        //   return EMPTY
+        // }),
+        shareReplay()
+        );
   }
 
   logout() {
@@ -62,14 +67,14 @@ export class AuthService {
       return !!this.getUser();
   }
 
-  checkSession() {
+  checkSession() { //temporary function while implementing logout on 401 error //remove in app.component.ts
     let user = JSON.parse(localStorage.getItem('currentUser'));
     if (user) {
       //console.log(user)
       let last_action = user.last_action;
       //console.log(last_action);
       //console.log(Date.now());
-      if ((Date.now() - last_action) <= 900000) {
+      if ((Date.now() - last_action) <= 1800000) {
         let new_action = Date.now();
         user.last_action = new_action;
         localStorage.setItem('currentUSer', JSON.stringify(user));

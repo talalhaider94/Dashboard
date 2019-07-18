@@ -69,7 +69,7 @@ export const navItems: NavData[] = [
   },*/
   {
     name: 'Workflow',
-    url: '/coming-soon',
+    url: '/workflow-menu',
     icon: 'fa fa-code-fork',
     key: ['VIEW_WORKFLOW_KPI_VERIFICA', 'VIEW_WORKFLOW_RICERCA'],
     children: [
@@ -77,14 +77,14 @@ export const navItems: NavData[] = [
         name: 'KPI in Verifica',
         url: '/workflow/verifica',
         icon: 'fa fa-file-text-o',
-        version: '0.0.1',
+        version: '0.0.8',
         key: 'VIEW_WORKFLOW_KPI_VERIFICA'
       },
       {
         name: 'Ricerca',
         url: '/workflow/ricerca',
         icon: 'fa fa-search',
-        version: '0.0.2',
+        version: '0.0.4',
         key: ['VIEW_WORKFLOW_RICERCA']
       },
     ]
@@ -95,6 +95,13 @@ export const navItems: NavData[] = [
     icon: 'fa fa-folder-open-o',
     key: ['VIEW_CATALOG_KPI', 'VIEW_CATALOG_UTENTI', 'VIEW_UTENTI_DA_CONSOLIDARE'],
     children: [
+      {
+        name: 'KPI da Consolidare',
+        url: '/catalogo/admin-kpi',
+        icon: 'fa fa-file-archive-o',
+        version: '0.0.1',
+        key: 'VIEW_CATALOG_KPI'
+      },
       {
         name: 'Utenti da Consolidare',
         url: '/catalogo/admin-utenti',
@@ -136,12 +143,12 @@ export const navItems: NavData[] = [
     name: 'KPI Certificati',
     url: '/archivedkpi',
     icon: 'fa fa-archive',
-    version: '0.0.1',
+    version: '0.0.2',
     key: 'VIEW_KPI_CERTICATI',
   },
   {
     name: 'Loading Form',
-    url: '/coming-soon',
+    url: '/loadingform-menu',
     icon: 'fa fa-pencil-square-o',
     key: ['VIEW_ADMIN_LOADING_FORM', 'VIEW_LOADING_FORM_UTENTI'],
     children: [
@@ -156,20 +163,35 @@ export const navItems: NavData[] = [
         name: 'Utente',
         url: '/loading-form/utente',
         icon: 'fa fa-user-circle-o',
-        version: '0.0.1',
+        version: '0.0.8',
         key: 'VIEW_LOADING_FORM_UTENTI'
       },
     ]
   },
   {
+    name: 'Report',
+    url: '',
+    icon: 'fa fa-pencil-square-o',
+    key: 'VIEW_CONFIGURATIONS',
+    children: [
+      {
+        name: 'Notifiche Workflow',
+        url: '/specialreporting',
+        icon: 'fa fa-user-circle',
+        version: '0.0.4',
+        key: 'VIEW_CONFIGURATIONS'
+      }
+    ]
+  },
+  {
     name: 'Configurazione',
-    url: '/coming-soon',
+    url: '/config-menu',
     icon: 'fa fa-gear',
     key: ['VIEW_CONFIGURATIONS','VIEW_WORKFLOW_CONFIGURATIONS'],
     children: [
       {
         name: 'Generali',
-        url: '/tconfiguration',
+        url: '/tconfiguration/general',
         icon: 'fa fa-check-circle-o',
         version: '0.0.1',
         key: 'VIEW_CONFIGURATIONS'
@@ -218,15 +240,15 @@ export const navItems: NavData[] = [
         url: '/userprofiling/rolepermissions',
         icon: 'fa fa-gear',
         version: '0.0.1',
-        key: 'VIEW_CONFIGURATIONS'
+        key: 'VIEW_CONFIGURATIONS' 
       }, 
       {
         name: 'Profilazione Utente',
-        url: '/userprofiling',
+        url: '/userprofiling/userpermissions',
         icon: 'fa fa-gear',
-        version: '0.0.1',
+        version: '0.0.4',
         key: 'VIEW_CONFIGURATIONS'
-      },
+      }
     ]
   },
   {
@@ -235,7 +257,7 @@ export const navItems: NavData[] = [
   },
   {
     title: true, 
-    name: 'Version 1.3.0',
+    name: 'Version 1.3.1',
     class: 'class-version-nav',
     key: 'alwaysShow'
   },

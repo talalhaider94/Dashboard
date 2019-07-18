@@ -3,6 +3,7 @@ import { DataTableDirective } from 'angular-datatables';
 import { ApiService } from '../../_services/api.service';
 import { Subject } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
+import * as moment from 'moment';
 
 declare var $;
 var $this;
@@ -47,11 +48,7 @@ export class EmailComponent implements OnInit {
   };
 
   modalData = {
-    key: '',
-    value: '',
-    owner: '',
-    isenable: true,
-    description: '',
+    email_body: ''
   };
   
   addData = {
@@ -65,11 +62,10 @@ export class EmailComponent implements OnInit {
   dtTrigger: Subject<any> = new Subject();
   ConfigTableBodyData: any = [
     {
-      key: 'key',
-      value: 'value',
-      owner: 'owner',
-      isenable: true,
-      description: 'description',
+      type: 'type',
+      user_domain: 'user_domain',
+      period: 'period',
+      notify_date: 'notify_date'
     }
   ]
 
@@ -80,16 +76,34 @@ export class EmailComponent implements OnInit {
     $this = this;
   }
 
+  monthVar: any;
+  yearVar: any;
+
   ngOnInit() {
+    this.monthVar = moment().format('MM');
+   this.yearVar = moment().format('YY');
+   this.populateDateFilter();
+
+    console.log(this.monthVar+'/'+this.yearVar);
   }
 
   populateModalData(data) {
-    this.modalData.key = data.key;
-    this.modalData.owner = data.owner;
-    this.modalData.value = data.value;
-    this.modalData.isenable = data.isenable;
-    this.modalData.description = data.description;
+    this.modalData.email_body = data.email_body;
   }
+
+  populateDateFilter() {
+    this.apiService.getEmails(this.monthVar, this.yearVar).subscribe((data: any) => {
+   
+    this.ConfigTableBodyData = data;
+    this.rerender();
+    // this.numeroContratti();
+    // this.addChildren();
+    // },error=>{
+
+    //   this.toastr.error("errore di connessione al sever");
+
+    });
+}
 
   addConfig() {
     this.addData.key = this.key;
@@ -175,9 +189,9 @@ export class EmailComponent implements OnInit {
   }
 
   getCOnfigurations() {
-    this.apiService.getConfigurations().subscribe((data) =>{
+    this.apiService.getEmails(this.monthVar,this.yearVar).subscribe((data) =>{
       this.ConfigTableBodyData = data;
-      console.log('Configs ', data);
+      console.log('Emails Data ', data);
       this.rerender();
     });
   }

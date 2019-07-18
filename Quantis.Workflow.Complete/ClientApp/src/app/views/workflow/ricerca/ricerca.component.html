@@ -13,7 +13,8 @@
                                     <div class="form-group col-6">
                                         <label for="monthOption"><strong>Mese</strong></label>
                                         <select #monthSelect class="form-control" name="monthOption"
-                                            [(ngModel)]="monthOption">
+                                            [(ngModel)]="monthOption" (change)="onDataChange()">
+                                            <option value="all">Tutti</option>
                                             <option value="01">1</option>
                                             <option value="02">2</option>
                                             <option value="03">3</option>
@@ -31,7 +32,8 @@
                                     <div class="form-group col-6">
                                         <label for="yearOption"><strong>Anno</strong></label>
                                         <select #yearSelect class="form-control" name="yearOption"
-                                            [(ngModel)]="yearOption">
+                                            [(ngModel)]="yearOption" (change)="onDataChange()">
+                                            <option value="all">Tutti</option>
                                             <option value="16">2016</option>
                                             <option value="18">2017</option>
                                             <option value="18">2018</option>
@@ -40,14 +42,6 @@
                                         </select>
                                     </div>
                                     <div class="w-100"></div>
-                                    <!-- <div class="col ">
-                                        <label>
-                                            “DA – A”
-                                        </label>
-                                        <input type="text" class="form-control " placeholder="DA – A" bsDaterangepicker
-                                            [(ngModel)]="daterangepickerModel" #searchCol1
-                                            [bsConfig]="{ adaptivePosition: true }" />
-                                    </div> -->
                                     <div class="col ">
                                         <label>
                                             Numero Rif
@@ -104,6 +98,7 @@
                                     <th>Gruppo</th>
                                     <th>Stato</th>
                                     <th>Descrizione</th>
+                                    <th>Titolo</th>
                                     <th>KPI ID</th>
                                     <th>Riferimento S1 </th>
                                     <th>Riferimento S2</th>
@@ -122,9 +117,20 @@
                                     <!-- <td class="d-none">{{ ticket.id }} </td> -->
                                     <td>{{ ticket.ref_num || 'N/A' }}</td>
                                     <td>
-                                        <button type="button" class="btn btn-ghost-dark" [popover]="ticket.summary"
+                                        <ng-template #popSummary>
+                                            <ul class="list-group list-group-flush"
+                                                *ngFor="let obj of formatSummaryColumn(ticket.summary)">
+                                                <li class="list-group-item">
+                                                    {{ obj }}
+                                                </li>
+                                            </ul>
+                                        </ng-template>
+                                        <button type="button" class="btn btn-ghost-dark" [popover]="popSummary"
                                             triggers="focus">
                                             {{ ticket.summary | slice:0:15 || 'N/A' }}
+                                            <span class="d-none">
+                                                {{ ticket.summary | slice:15 || 'N/A' }}
+                                            </span>
                                         </button>
                                     </td>
                                     <td>
@@ -135,9 +141,32 @@
                                     </td>
                                     <td>{{ ticket.status || 'N/A' }}</td>
                                     <td>
-                                        <button type="button" class="btn btn-ghost-dark" [popover]="ticket.description"
+                                        <ng-template #popTemplate>
+                                            <ul class="list-group list-group-flush"
+                                                *ngFor="let obj of formatDescriptionColumn(ticket.description)">
+                                                <li *ngIf="obj.key" class="list-group-item">
+                                                    <b>{{obj.key}}</b> {{obj.value}}
+                                                </li>
+                                                <li *ngIf="!obj.key" class="list-group-item">
+                                                    {{obj}}
+                                                </li>
+                                            </ul>
+                                        </ng-template>
+                                        <button type="button" class="btn btn-ghost-dark" [popover]="popTemplate"
                                             triggers="focus">
                                             {{ ticket.description | slice:0:15 || 'N/A' }}
+                                            <span class="d-none">
+                                                {{ ticket.description | slice:15 || 'N/A' }}
+                                            </span>
+                                        </button>
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-ghost-dark" [popover]="ticket.titolo"
+                                            triggers="focus">
+                                            {{ ticket.titolo | slice:0:15 || 'N/A' }}
+                                            <span class="d-none">
+                                                {{ ticket.titolo | slice:15 || 'N/A' }}
+                                            </span>
                                         </button>
                                     </td>
                                     <td>{{ ticket.id_kpi || 'N/A' }}</td>

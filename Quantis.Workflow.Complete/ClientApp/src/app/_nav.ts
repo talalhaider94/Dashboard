@@ -170,14 +170,14 @@ export const navItems: NavData[] = [
   },
   {
     name: 'Report',
-    url: '',
+    url: '/report',
     icon: 'fa fa-pencil-square-o',
     key: 'VIEW_CONFIGURATIONS',
     children: [
       {
-        name: 'Notifiche Workflow',
+        name: 'Notifiche LoadingForm',
         url: '/specialreporting',
-        icon: 'fa fa-user-circle',
+        icon: 'fa fa-envelope',
         version: '0.0.4',
         key: 'VIEW_CONFIGURATIONS'
       }
@@ -246,7 +246,7 @@ export const navItems: NavData[] = [
         name: 'Profilazione Utente',
         url: '/userprofiling/userpermissions',
         icon: 'fa fa-gear',
-        version: '0.0.4',
+        version: '0.0.6',
         key: 'VIEW_CONFIGURATIONS'
       }
     ]

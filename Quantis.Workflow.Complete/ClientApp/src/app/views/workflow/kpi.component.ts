@@ -1,14 +1,13 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { WorkFlowService, AuthService } from '../../_services';
-import { first, delay, mergeMap, retryWhen } from 'rxjs/operators';
-import { Subject, Observable, of, throwError } from 'rxjs';
+import { first, delay, mergeMap, retryWhen, concatMap, map } from 'rxjs/operators';
+import { Subject, Observable, of, throwError, forkJoin, from } from 'rxjs';
 import { DataTableDirective } from 'angular-datatables';
 import { ModalDirective } from 'ngx-bootstrap/modal';
 import { FileSaverService } from 'ngx-filesaver';
 import { ToastrService } from 'ngx-toastr';
 import { FormGroup, FormBuilder, Validators } from '@angular/forms';
-import { forkJoin } from 'rxjs';
 import { FileUploader } from 'ng2-file-upload';
 import * as moment from 'moment';
 import WorkFlowHelper from '../../_helpers/workflow';
@@ -27,6 +26,8 @@ export class KPIComponent implements OnInit, OnDestroy {
   @ViewChild('infoModal') public infoModal: ModalDirective;
   @ViewChild('approveModal') public approveModal: ModalDirective;
   @ViewChild('rejectModal') public rejectModal: ModalDirective;
+  @ViewChild('ticketStatusModal') public ticketStatusModal: ModalDirective;
+
   @ViewChild('monthSelect') monthSelect: ElementRef;
   @ViewChild('yearSelect') yearSelect: ElementRef;
   @ViewChild('statoKPISelect') statoKPISelect: ElementRef;
@@ -101,13 +102,6 @@ export class KPIComponent implements OnInit, OnDestroy {
       },
       ],
       buttons: [
-        {
-          extend: 'colvis',
-          text: '<i class="fa fa-file"></i> Toggle Columns',
-          titleAttr: 'Toggle Columns',
-          collectionLayout: 'fixed three-column',
-          className: 'btn btn-primary mb-3'
-        },
         {
           extend: 'csv',
           text: '<i class="fa fa-file"></i> Esporta CSV',
@@ -264,44 +258,38 @@ export class KPIComponent implements OnInit, OnDestroy {
     this.submitted = true;
     const { description } = this.approveValues;
     this.loading = true;
-
-    let observables = new Array();
-    for (let ticket of this.selectedTickets) {
-      observables.push(this.workFlowService.escalateTicketbyID(ticket.id, ticket.status, description.value || null));
-    }
-    forkJoin(observables).subscribe(data => {
-      this.toastr.success('Ticket approved', 'Success');
-      console.log('approveFormSubmit', data);
-      if (data) {
-        this.ticketsStatus = data;
-        this.ticketsStatus.forEach(status => {
-          if (status.isbsistatuschanged) {
-            this.toastr.success('Success', 'BSI status true.');
-          } else {
-            this.toastr.error('Error', 'BSI status false.');
-          }
-          if (status.issdmstatuschanged) {
-            this.toastr.success('Success', 'SDM status true');
-          } else {
-            this.toastr.success('Error', 'SDM status false');
-          }
-          if (status.showarchivemsg) {
-            if (status.isarchive) {
-              this.toastr.success('Success', 'KPI archiviato con successo.');
-            } else {
-              this.toastr.success('Info', 'Archiviazione del KPI fallita.');
-            }
-          }
-        });
+    this.ticketsStatus = [];
+    const myObserver = {
+      next: status => {
+        this.ticketsStatus.push(status);
+        this.ticketStatusModal.show();
+        this.approveModal.hide();
+      },
+      error: err => {
+        this.approveModal.hide();
+        console.error('approveFormSubmit', err);
+        this.toastr.error('Error while approving form', 'Error');
+        this.loading = false;        
+      },
+      complete: () => {
         this._getAllTickets();
-      }
-      this.approveModal.hide();
-      this.loading = false;
-    }, error => {
-      console.error('approveFormSubmit', error);
-      this.toastr.error('Error while approving form', 'Error');
-      this.loading = false;
-    });
+        this.loading = false;
+      },
+    };
+
+    of(...this.selectedTickets)
+    .pipe(concatMap((ticket) => {
+      return this.workFlowService.escalateTicketbyID(ticket.id, ticket.status, description.value || null).pipe(map(result =>{
+        // Danial: here just for testing
+        // result = { 
+        //   isbsistatuschanged: true,
+        //   issdmstatuschanged: false,
+        //   showarchivemsg: true,
+        //   isarchive: false
+        //  }
+        return {ticket, result};
+      }));
+    })).subscribe(myObserver);
   }
 
   rejectFormSubmit() {
@@ -311,45 +299,30 @@ export class KPIComponent implements OnInit, OnDestroy {
     } else {
       const { description } = this.rejectValues;
       this.loading = true;
-
-      let observables = new Array();
-      for (let ticket of this.selectedTickets) {
-        observables.push(this.workFlowService.transferTicketByID(ticket.id, ticket.status, description.value));
-      }
-      forkJoin(observables).subscribe(data => {
-        console.log('rejectFormSubmit', data);
-        this.toastr.success('Ticket rejected', 'Success');
-        if (data) {
-          this.ticketsStatus = data;
-          this.ticketsStatus.forEach(status => {
-            if (status.isbsistatuschanged) {
-              this.toastr.success('Success', 'BSI status true.');
-            } else {
-              this.toastr.error('Error', 'BSI status false.');
-            }
-            if (status.issdmstatuschanged) {
-              this.toastr.success('Success', 'SDM status true');
-            } else {
-              this.toastr.success('Error', 'SDM status false');
-            }
-            if (status.showarchivemsg) {
-              if (status.isarchive) {
-                this.toastr.success('Success', 'KPI archiviato con successo.');
-              } else {
-                this.toastr.success('Info', 'Archiviazione del KPI fallita.');
-              }
-            }
-          });
-          // show toastr on reject
+      this.ticketsStatus = [];
+      const myObserver = {
+        next: status => {
+          this.ticketsStatus.push(status);
+          this.ticketStatusModal.show();
+          this.rejectModal.hide();
+        },
+        error: err => {
+          this.rejectModal.hide();
+          console.error('rejectFormSubmit', err);
+          this.toastr.error('Error while rejecting form', 'Error');
+          this.loading = false;        
+        },
+        complete: () => {
           this._getAllTickets();
-        }
-        this.rejectModal.hide();
-        this.loading = false;
-      }, error => {
-        console.error('rejectFormSubmit', error);
-        this.toastr.error('Error while rejecting form', 'Error');
-        this.loading = false;
-      });
+          this.loading = false;
+        },
+      };
+      of(...this.selectedTickets)
+      .pipe(concatMap((ticket) => {
+        return this.workFlowService.transferTicketByID(ticket.id, ticket.status, description.value || null).pipe(map(result =>{
+          return {ticket, result};
+        }));
+      })).subscribe(myObserver);
     }
   }
 

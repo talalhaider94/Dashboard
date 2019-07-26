@@ -19,7 +19,7 @@ var $this;
 
 var nome='';
 const EXCEL_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8';
-const EXCEL_EXTENSION = '.xlsx';
+const EXCEL_EXTENSION = '.csv';
 @Component({
   templateUrl: './archivedkpi.component.html'
 })
@@ -32,7 +32,11 @@ export class ArchivedKpiComponent implements OnInit {
   public filter: string;
   
   public p: any;
-  loading: boolean = false;
+  
+  loading: boolean = true;
+  loadingModal1:boolean=false;
+  loadingModalDati:boolean=false;
+
   dtOptions: DataTables.Settings = {
     language: {
       processing: "Elaborazione...",
@@ -66,14 +70,16 @@ export class ArchivedKpiComponent implements OnInit {
     value_kpi: '',
     ticket_id: '',
     close_timestamp_ticket: '',
-    archived: ''
+    archived: '',
+    contract_name:''
   };
 
   
 kpisData = [];
 datiGrezzi=[];
 countCampiData=[];
-
+id_kpi_temp = '';
+intervalloPeriodo='';
 
   fitroDataById: any = [
     {
@@ -114,70 +120,95 @@ countCampiData=[];
 
 
 
-  
+  annoIntervallo:any;
   monthVar: any;
   yearVar: any;
+  meseInput:any;
+  meseSelezionato:any;
+  annoSelezionato:any;
+  
   id:any;
   sortedCollection: any[];
-  constructor(private apiService: ApiService,private orderPipe: OrderPipe,private toastr: ToastrService) {
+  constructor(private apiService: ApiService,private orderPipe: OrderPipe) {
     $this = this;
     this.sortedCollection = orderPipe.transform(this.fitroDataById, 'info.name');
     console.log(this.sortedCollection);
   }
 
+  createLoop(length = this.countCampiData) {
+    console.log(length)
+    return new Array(length);
+  }
   ngOnInit() {
    this.getAnno();
+   this.meseSelezionato=moment().subtract(1, 'month').format('MM');
    this.monthVar = moment().subtract(1, 'month').format('MM');
    this.yearVar = moment().subtract(1, 'month').format('YYYY');
-   this.populateDateFilter();
+   //this.populateDateFilter();
    
   }
 
   populateModalData(data) {
+    this.reset();
+    this.loadingModal1=true;
+   
     this.apiService.getArchivedKpiById(data.id_kpi).subscribe((kpis: any) => {
     this.kpisData = kpis;
-
-    console.log('pop',this.kpisData);
+    this.loadingModal1=false;
+   
+   console.log('pop',this.kpisData);
     });
   }
 
   
 
+
+
   populateDateFilter() {
+    
+     this.loading=true;
+     
       this.apiService.getArchivedKpis(this.monthVar, this.yearVar).subscribe((data: any) => {
      
       this.ArchivedKpiBodyData = data;
-      console.log("kpi1",data);
+      //console.log("kpi1",data);
      // this.getNumeroContratti();
-      
+     
       this.rerender();
       this.numeroContratti();
       this.addChildren();
-      },error=>{
-
-        this.toastr.error("errore di connessione al sever");
-
+      this.loading=false;
       });
+    //  console.log("prova", this.ArchivedKpiBodyData)
+    
+    
   }
   
-  ngAfterViewInit() {
+ ngAfterViewInit() {
     this.dtTrigger.next();
     //this.getKpis1();
-    
+   
     this.apiService.getDataKpis(this.monthVar, this.yearVar).subscribe((data:any)=>{
-      this.ArchivedKpiBodyData = data;
-      
-      this.rerender();
+     
+     this.ArchivedKpiBodyData = data;
+     
+    this.rerender();
+    this.numeroContratti();
+    this.addChildren();
+    this.loading=false;
     });
+    
+    
   }
 
 
-  // ngOnDestroy(): void {
-  //   // Do not forget to unsubscribe the event
-  //   this.dtTrigger.unsubscribe();
-  // }
+  //ngOnDestroy(): void {
+   //Do not forget to unsubscribe the event
+  // this.dtTrigger.unsubscribe();
+  //}
 
   rerender(): void {
+    
     this.datatableElement.dtInstance.then((dtInstance: DataTables.Api) => {
       // Destroy the table first
       dtInstance.destroy();
@@ -199,7 +230,7 @@ countCampiData=[];
     return tmp.textContent||tmp.innerText;
   }
 
-  getKpis() {
+ /* getKpis() {
     this.apiService.getArchivedKpis(this.monthVar, this.yearVar).subscribe((data) =>{
       this.ArchivedKpiBodyData = data;
       console.log("kpi",data);
@@ -208,35 +239,152 @@ countCampiData=[];
       })
       
     });
+  }*/
+
+  eventTypeArray = [];
+
+  getdati(id_kpi, tracking_period = '',interval_kpi='', month = this.monthVar, year = this.yearVar){
+      this.clear();
+      this.meseSelezionato=month;
+      this.id_kpi_temp = id_kpi;
+      if(tracking_period.length >0 && interval_kpi.length >0){
+       
+          this.arrayTempo(tracking_period,interval_kpi);
+      }
+      this.loadingModalDati = true;
+      this.apiService.getKpiArchivedData(id_kpi,month, year).subscribe((dati: any) =>{
+        this.fitroDataById = dati;
+        console.log(dati);
+        Object.keys(this.fitroDataById).forEach(key => {
+          this.fitroDataById[key].data = JSON.parse(this.fitroDataById[key].data);
+            switch (this.fitroDataById[key].event_state_id) {
+            case 1:
+              this.fitroDataById[key].event_state_id = "Originale";
+              break;
+            case 2:
+              this.fitroDataById[key].event_state_id = "Sovrascritto";
+              break;
+            case 3:
+              this.fitroDataById[key].event_state_id = "Eliminato";
+              break;
+            case 4:
+              this.fitroDataById[key].event_state_id = "Correzione";
+              break;
+            case 5:
+              this.fitroDataById[key].event_state_id = "Correzione eliminata";
+              break;
+            case 6:
+              this.fitroDataById[key].event_state_id = "Business";
+              break;
+            default:
+              this.fitroDataById[key].event_state_id = this.fitroDataById[key].event_state_id;
+              break;
+          }
+          this.fitroDataById[key].modify_date=moment(this.fitroDataById[key].modify_date).format('DD/MM/YYYY HH:mm:ss');
+          this.fitroDataById[key].create_date=moment(this.fitroDataById[key].create_date).format('DD/MM/YYYY HH:mm:ss');
+          this.fitroDataById[key].time_stamp=moment(this.fitroDataById[key].time_stamp).format('DD/MM/YYYY HH:mm:ss');
+        })
+        this.getCountCampiData();
+        this.numeroEventi();
+        let max = this.countCampiData.length;
+
+
+        Object.keys(this.fitroDataById).forEach(key => {
+          let temp = Object.keys(this.fitroDataById[key].data).length;
+          if (temp < max) {
+            for (let i = 0; i < (max - temp); i++) {
+              this.fitroDataById[key].data['empty#'+i] = '##empty##';
+            }
+          }
+        })
+          
+  
+          //****console.log("array tempo",this.arrayPeriodo);
+          console.log('dati', dati);
+          //****console.log('key', this.fitroDataById);
+         /**** this.getCountCampiData();
+          this.numeroEventi();****/
+ 
+          //****console.log(this.eventTypeArray);
+  
+          /*Object.keys(this.eventTypeArray).forEach( e=> {
+            console.log(e + '#' + this.eventTypeArray[e]);
+          })*/
+          this.loadingModalDati = false;
+      });
   }
 
-  eventTypeArray=[];
-  getdati(id_kpi, month = this.monthVar, year = this.yearVar){
-    this.loading = true;
-    this.apiService.getKpiArchivedData(id_kpi,month, year).subscribe((dati: any) =>{
+
+  getdati1(id_kpi, month = this.meseSelezionato, year = this.yearVar){
+    this.clear();
     
-    this.fitroDataById = dati;
-    Object.keys(this.fitroDataById).forEach( key => {
-      this.fitroDataById[key].data = JSON.parse(this.fitroDataById[key].data);
-     
-    })
+    this.id_kpi_temp = id_kpi;
+    this.loadingModalDati = true;
+  
+    this.apiService.getKpiArchivedData(id_kpi,month, year).subscribe((dati: any) =>{
+      this.fitroDataById = dati;
+      console.log(dati);
+      Object.keys(this.fitroDataById).forEach(key => {
+        this.fitroDataById[key].data = JSON.parse(this.fitroDataById[key].data);
+          switch (this.fitroDataById[key].event_state_id) {
+            case 1:
+              this.fitroDataById[key].event_state_id = "Originale";
+              break;
+            case 2:
+              this.fitroDataById[key].event_state_id = "Sovrascritto";
+              break;
+            case 3:
+              this.fitroDataById[key].event_state_id = "Eliminato";
+              break;
+            case 4:
+              this.fitroDataById[key].event_state_id = "Correzione";
+              break;
+            case 5:
+              this.fitroDataById[key].event_state_id = "Correzione eliminata";
+              break;
+            case 6:
+              this.fitroDataById[key].event_state_id = "Business";
+              break;
+            default:
+              this.fitroDataById[key].event_state_id = this.fitroDataById[key].event_state_id;
+              break;
+          }
+          this.fitroDataById[key].modify_date=moment(this.fitroDataById[key].modify_date).format('DD/MM/YYYY HH:mm:ss');
+          this.fitroDataById[key].create_date=moment(this.fitroDataById[key].create_date).format('DD/MM/YYYY HH:mm:ss');
+          this.fitroDataById[key].time_stamp=moment(this.fitroDataById[key].time_stamp).format('DD/MM/YYYY HH:mm:ss');
+      })
+      this.getCountCampiData();
+      this.numeroEventi();
+      let max = this.countCampiData.length;
 
-  console.log('dati',dati);
-  this.getCountCampiData();
 
-  this.numeroEventi();
-  this.loading = false;
-  console.log(this.eventTypeArray);
+      Object.keys(this.fitroDataById).forEach(key => {
+        let temp = Object.keys(this.fitroDataById[key].data).length;
+        if (temp < max) {
+          for (let i = 0; i < (max - temp); i++) {
+            this.fitroDataById[key].data['empty#'+i] = '##empty##';
+          }
+        }
+      })
+        
 
-  /*Object.keys(this.eventTypeArray).forEach( e=> {
-    console.log(e + '#' + this.eventTypeArray[e]);
-  })*/
-},error=>{
+        //****console.log("array tempo",this.arrayPeriodo);
+        console.log('dati', dati);
+        //****console.log('key', this.fitroDataById);
+       /**** this.getCountCampiData();
+        this.numeroEventi();****/
 
-  this.toastr.error("errore di connessione al server");
+        //****console.log(this.eventTypeArray);
 
-});
+        /*Object.keys(this.eventTypeArray).forEach( e=> {
+          console.log(e + '#' + this.eventTypeArray[e]);
+        })*/
+        this.loadingModalDati = false;
+    });
   }
+
+
+
 arrayContratti=[];
 
 numeroContratti()
@@ -300,26 +448,39 @@ addChildren(){
   console.log(second);
 }*/
 
-getDatiSecondPop(id_kpi, interval){
+getDatiSecondPop(id_kpi,interval,tracking_period){
 
-      var mese=moment(interval).format('MM');
-      var anno=moment(interval).format('YYYY');
-       this.getdati(id_kpi,mese,anno);
-
+     this.id_kpi_temp = id_kpi;
+     this.meseSelezionato=moment(interval).format('MM');
+      this.annoSelezionato=moment(interval).format('YYYY');
+    // this.getdati(id_kpi,mese,anno,tracking_period);
+     this.getdati(id_kpi,tracking_period,interval,this.meseSelezionato,this.annoSelezionato);
 
 
         
       /*let resources = data["ArchivedKpiBodyData"];
       let resource = resources["interval_kpi"];
       console.log('stampa',resource);*/
-
   
+}
 
-  
+getDatiSecondPop2(id_kpi,meseA,anniA){
+ 
+  this.id_kpi_temp = id_kpi;
+  this.meseSelezionato=meseA;
+   this.annoSelezionato=anniA;
+ // this.getdati(id_kpi,mese,anno,tracking_period);
+  this.getdati1(id_kpi,this.meseSelezionato,this.annoSelezionato);
 
 
+     
+   /*let resources = data["ArchivedKpiBodyData"];
+   let resource = resources["interval_kpi"];
+   console.log('stampa',resource);*/
 
 }
+
+
 
 
 
@@ -372,7 +533,6 @@ setOrder(value: string) {
 
 
 getNumeroKPI(){
-
     return this.ArchivedKpiBodyData.length;
   }
 
@@ -412,25 +572,127 @@ getNumeroKPI(){
     this.exportAsExcelFile(this.fitroDataById, 'sample');
   }*/
  
-  fireEvent()
+fireEvent()
 {
-  const ws: XLSX.WorkSheet=XLSX.utils.table_to_sheet(this.table.nativeElement);
+/*const ws: XLSX.WorkSheet=XLSX.utils.table_to_sheet(this.table.nativeElement);
   const wb: XLSX.WorkBook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+ XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    XLSX.writeFile(wb, 'Export.csv');*/
   
-  /* save to file */
-  XLSX.writeFile(wb, 'Export.csv');
+    const ws: XLSX.WorkSheet = XLSX.utils.json_to_sheet(this.fitroDataById);
+
+    /* generate workbook and add the worksheet */
+    const wb: XLSX.WorkBook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    
+    /* save to file */
+    XLSX.writeFile(wb, 'SheetJS.csv');
   
+ 
 }
+
+public exportAsExcelFile(json: any[], excelFileName: string): void {
+    
+  const worksheet: XLSX.WorkSheet = XLSX.utils.json_to_sheet(json);
+  console.log('worksheet',worksheet);
+  const workbook: XLSX.WorkBook = { Sheets: { 'data': worksheet }, SheetNames: ['data'] };
+  const excelBuffer: any = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+  //const excelBuffer: any = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+  this.saveAsExcelFile(excelBuffer, excelFileName);
+}
+
+private saveAsExcelFile(buffer: any, fileName: string): void {
+  const data: Blob = new Blob([buffer], {
+    type: EXCEL_TYPE
+  });
+  FileSaver.saveAs(data, fileName + '_export_' + new Date().getTime() + EXCEL_EXTENSION);
+}
+
+exportAsXLSX():void {
+  this.exportAsExcelFile(this.fitroDataById, 'sample');
+}
+
+
+
+
+
+
+
+/*exportExcel(data: any[]){
+  const worksheet: XLSX.WorkSheet = XLSX.utils.json_to_sheet(this.fitroDataById);
+  const workbook: XLSX.WorkBook = { Sheets: { 'data': worksheet }, SheetNames: ['data'] };
+  XLSX.writeFile(workbook, 'my_file.csv', { bookType: 'csv', type: 'buffer' });
+}*/
+
 
 clear(){
   this.filter = '';
   this.fitroDataById=[];
   this.p=1;
+
   }
+
   reset() {
     this.kpisData = [];
   }
+
+arrayPeriodo=[];
+arrayTempo(tracking_period,interval_kpi){
+ //debugger;
+console.log(tracking_period);
+this.arrayPeriodo=[];
+if( tracking_period === 'TRIMESTRALE'){
+  
+ var mese1 = moment(interval_kpi).format('MM');
+ var mese2 = moment(interval_kpi).subtract(1, 'month').format('MM');
+ var mese3 = moment(interval_kpi).subtract(2, 'month').format('MM');
+  this.arrayPeriodo.push(mese1,mese2,mese3);
+  
+  console.log("trimestrale",this.arrayPeriodo);
+}
+else if( tracking_period === 'MENSILE')
+{
+ 
+ 
+var mese4 = moment(interval_kpi).format('MM');
+ this.arrayPeriodo.push(mese4);
+ console.log("mensile",this.arrayPeriodo);
+}
+else if(tracking_period ==='SEMESTRALE'){
+ 
+  let mese1 = moment(interval_kpi).format('MM');
+  let mese2 = moment(interval_kpi).subtract(1, 'month').format('MM');
+  let mese3 = moment(interval_kpi).subtract(2, 'month').format('MM');
+  let mese4 = moment(interval_kpi).subtract(3, 'month').format('MM');
+  let mese5 = moment(interval_kpi).subtract(4, 'month').format('MM');
+  let mese6 = moment(interval_kpi).subtract(5, 'month').format('MM');
+
+ this.arrayPeriodo.push(mese1,mese2,mese3,mese4,mese5,mese6);
+ console.log("semestrale",this.arrayPeriodo);
+}
+else if(tracking_period ==='ANNUALE'){
+ 
+  let mese1 = moment(interval_kpi).format('MM');
+  let mese2 = moment(interval_kpi).subtract(1, 'month').format('MM');
+  let mese3 = moment(interval_kpi).subtract(2, 'month').format('MM');
+  let mese4 = moment(interval_kpi).subtract(3, 'month').format('MM');
+  let mese5 = moment(interval_kpi).subtract(4, 'month').format('MM');
+  let mese6 = moment(interval_kpi).subtract(5, 'month').format('MM');
+  let mese7 = moment(interval_kpi).subtract(6, 'month').format('MM');
+  let mese8 = moment(interval_kpi).subtract(7, 'month').format('MM');
+  let mese9 = moment(interval_kpi).subtract(8, 'month').format('MM');
+  let mese10 = moment(interval_kpi).subtract(9, 'month').format('MM');
+  let mese11 = moment(interval_kpi).subtract(10, 'month').format('MM');
+  let mese12 = moment(interval_kpi).subtract(11, 'month').format('MM');
+
+
+ this.arrayPeriodo.push(mese1,mese2,mese3,mese4,mese5,mese6,mese7,mese8,mese9,mese10,mese11,mese12);
+ console.log("semestrale",this.arrayPeriodo);
+}
+
+
+
+}
 
 
 }

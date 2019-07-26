@@ -70,13 +70,6 @@ export class RicercaComponent implements OnInit, OnDestroy {
       },
       buttons: [
         {
-          extend: 'colvis',
-          text: '<i class="fa fa-file"></i> Toggle Columns',
-          titleAttr: 'Toggle Columns',
-          collectionLayout: 'fixed three-column',
-          className: 'btn btn-primary mb-3'
-        },
-        {
           extend: 'csv',
           text: '<i class="fa fa-file"></i> Esporta CSV',
           titleAttr: 'Esporta CSV',
@@ -93,7 +86,7 @@ export class RicercaComponent implements OnInit, OnDestroy {
         infoPostFix: "",
         loadingRecords: "Caricamento...",
         zeroRecords: "La ricerca non ha portato alcun risultato.",
-        emptyTable: "Nessun dato presente nella tabella.",
+        emptyTable: "Nessun Ticket Trovato.",
         paginate: {
           first: "Primo",
           previous: "Precedente",
@@ -111,18 +104,23 @@ export class RicercaComponent implements OnInit, OnDestroy {
 
   getRicercaTickets () {
     let period;
-    if(this.monthOption === 'all' || this.yearOption === 'all') {
-      period = 'all';
+    if(this.monthOption === 'all' && this.yearOption === 'all') {
+      period = 'all/all';
     } else {
       period = `${this.monthOption}/${this.yearOption}`;
     }
     this.workFlowService.getTicketsSearchByUserRecerca(period).pipe(first()).subscribe(data => {
       console.log('getTicketsSearchByUserRecerca', data);
-      this.allTickets = data;
+      if(!!data && data.length > 0) {
+        this.allTickets = data;
+      } else {
+        this.allTickets = null;
+      }      
       this.rerender();
       this.loading = false;
     }, error => {
       console.error('getTicketsSearchByUserRecerca', error);
+      this.allTickets = null;
       this.loading = false;
     })
   }
@@ -254,7 +252,7 @@ export class RicercaComponent implements OnInit, OnDestroy {
     });
 
     $this.datatableElement.dtInstance.then((datatable_Ref: DataTables.Api) => {
-      datatable_Ref.columns(4).every(function () {
+      datatable_Ref.columns(7).every(function () {
         const that = this;
         // Create the select list and search operation
         const select = $($this.searchCol4.nativeElement)
@@ -264,6 +262,8 @@ export class RicercaComponent implements OnInit, OnDestroy {
               .draw();
           });
         // Get the search data for the first column and add to the select list
+        select.empty();
+        select.append($('<option value="">Stato</option>'));
         this
           .cache('search')
           .sort()

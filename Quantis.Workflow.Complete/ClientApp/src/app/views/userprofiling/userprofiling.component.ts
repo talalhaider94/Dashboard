@@ -35,9 +35,9 @@ export class UserProfilingComponent implements OnInit {
     rolesList: [],
     assignedPermissions: []
   }
-  permissionsData = [];
-  contractsData = [];
-  kpisData = [];
+  permissionsData: any;
+  contractsData: any;
+  kpisData: any;
   kpisId = [];
   storedIds = [];
   saveKpisData =  {
@@ -54,10 +54,12 @@ export class UserProfilingComponent implements OnInit {
     checked: null,
     selected: null
   }
-  filters = {
+ 
+  filters: any = {
     searchUsersText: '',
     searchPermissionsText: ''
   }
+
   loading = {
     users: false,
     roles: false
@@ -131,6 +133,12 @@ export class UserProfilingComponent implements OnInit {
     console.log('getKpis ==> ', this.selectedData.userid,this.selectedData.permid);
     this.apiService.getKpis(this.selectedData.userid,this.selectedData.permid).subscribe(data => {
       this.kpisData = data;
+      // initially add ids of checked kpis
+      this.kpisId = [];
+      data.forEach((item)=>{ 
+        item.code == '1' ? this.kpisId.push(item.id) : null;
+      });
+
     });
   }
 
@@ -180,8 +188,18 @@ export class UserProfilingComponent implements OnInit {
     });
   }
 
-  storeKpis(data){
-    this.kpisId = data.id;
+  storeKpis(data, event){
+    // event.target.checked
+    if(!event.target.checked){
+      let idx = this.kpisId.indexOf(data.id);
+      if(idx>-1){
+        this.kpisId.splice(idx, 1);
+      }
+    } else {
+      if(!this.kpisId.includes(data.id)){
+        this.kpisId.push(data.id);
+      }
+    }
     console.log('storedKpis ==> ', this.kpisId);
   }
   
@@ -192,6 +210,7 @@ export class UserProfilingComponent implements OnInit {
 
     this.apiService.assignKpistoUser(this.saveKpisData).subscribe(data => {
       this.toastr.success('Saved', 'Success');
+      this.selectRoleItem(this.selectedUserObj, null);
     }, error => {
       this.toastr.error('Not Saved', 'Error');
     }); 

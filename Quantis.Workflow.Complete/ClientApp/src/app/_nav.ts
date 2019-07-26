@@ -71,36 +71,43 @@ export const navItems: NavData[] = [
     name: 'Workflow',
     url: '/workflow-menu',
     icon: 'fa fa-code-fork',
-    key: ['VIEW_WORKFLOW_KPI_VERIFICA', 'VIEW_WORKFLOW_RICERCA'],
+    key: ['VIEW_WORKFLOW_KPI_VERIFICA', 'VIEW_WORKFLOW_RICERCA', 'VIEW_WORKFLOW_AMMINISTRAZIONE'],
     children: [
       {
         name: 'KPI in Verifica',
         url: '/workflow/verifica',
         icon: 'fa fa-file-text-o',
-        version: '0.0.8',
+        version: '0.1.5',
         key: 'VIEW_WORKFLOW_KPI_VERIFICA'
       },
       {
         name: 'Ricerca',
         url: '/workflow/ricerca',
         icon: 'fa fa-search',
-        version: '0.0.4',
+        version: '0.1.5',
         key: ['VIEW_WORKFLOW_RICERCA']
       },
+      {
+        name: 'Amministrazione',
+        url: '/workflow/amministrazione',
+        icon: 'fa fa-users',
+        version: '0.0.1',
+        key: ['VIEW_WORKFLOW_AMMINISTRAZIONE']
+      }
     ]
   },
   {
     name: 'Catalogo',
     url: '/catalogo',
     icon: 'fa fa-folder-open-o',
-    key: ['VIEW_CATALOG_KPI', 'VIEW_CATALOG_UTENTI', 'VIEW_UTENTI_DA_CONSOLIDARE'],
+    key: ['VIEW_CATALOG_KPI', 'VIEW_CATALOG_UTENTI', 'VIEW_UTENTI_DA_CONSOLIDARE', 'VIEW_KPI_DA_CONSOLIDARE'],
     children: [
       {
         name: 'KPI da Consolidare',
         url: '/catalogo/admin-kpi',
         icon: 'fa fa-file-archive-o',
         version: '0.0.1',
-        key: 'VIEW_CATALOG_KPI'
+        key: 'VIEW_KPI_DA_CONSOLIDARE'
       },
       {
         name: 'Utenti da Consolidare',
@@ -143,7 +150,7 @@ export const navItems: NavData[] = [
     name: 'KPI Certificati',
     url: '/archivedkpi',
     icon: 'fa fa-archive',
-    version: '0.0.2',
+    version: '0.0.4',
     key: 'VIEW_KPI_CERTICATI',
   },
   {
@@ -163,7 +170,7 @@ export const navItems: NavData[] = [
         name: 'Utente',
         url: '/loading-form/utente',
         icon: 'fa fa-user-circle-o',
-        version: '0.0.8',
+        version: '0.0.12',
         key: 'VIEW_LOADING_FORM_UTENTI'
       },
     ]
@@ -172,14 +179,21 @@ export const navItems: NavData[] = [
     name: 'Report',
     url: '/report',
     icon: 'fa fa-pencil-square-o',
-    key: 'VIEW_CONFIGURATIONS',
+    key: 'VIEW_NOTIFIER_EMAILS',
     children: [
       {
         name: 'Notifiche LoadingForm',
         url: '/specialreporting',
         icon: 'fa fa-envelope',
         version: '0.0.4',
-        key: 'VIEW_CONFIGURATIONS'
+        key: 'VIEW_NOTIFIER_EMAILS'
+      },
+      {
+        name: 'Dati Grezzi',
+        url: '/datigrezzi',
+        icon: 'fa fa-envelope',
+        version: '0.0.1',
+        key: 'VIEW_NOTIFIER_EMAILS'
       }
     ]
   },
@@ -257,7 +271,7 @@ export const navItems: NavData[] = [
   },
   {
     title: true, 
-    name: 'Version 1.3.1',
+    name: 'Version 1.3.2',
     class: 'class-version-nav',
     key: 'alwaysShow'
   },

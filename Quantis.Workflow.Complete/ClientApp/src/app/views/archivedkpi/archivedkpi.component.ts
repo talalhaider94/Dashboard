@@ -30,7 +30,7 @@ export class ArchivedKpiComponent implements OnInit {
   @ViewChild('table') table: ElementRef;
   
   public filter: string;
-  
+  public comparator: any;
   public p: any;
   
   loading: boolean = true;
@@ -114,6 +114,7 @@ intervalloPeriodo='';
       ticket_id: '',
       close_timestamp_ticket: '',
       archived: '',
+      global_rule_id: '',
      
     }
   ]
@@ -152,7 +153,7 @@ intervalloPeriodo='';
     this.reset();
     this.loadingModal1=true;
    
-    this.apiService.getArchivedKpiById(data.id_kpi).subscribe((kpis: any) => {
+    this.apiService.getArchivedKpiById(data.global_rule_id).subscribe((kpis: any) => {
     this.kpisData = kpis;
     this.loadingModal1=false;
    
@@ -247,12 +248,14 @@ intervalloPeriodo='';
       this.clear();
       this.meseSelezionato=month;
       this.id_kpi_temp = id_kpi;
-      if(tracking_period.length >0 && interval_kpi.length >0){
-       
-          this.arrayTempo(tracking_period,interval_kpi);
+      if(tracking_period.length >0 && interval_kpi.length >0){  
+        this.arrayTempo(tracking_period, interval_kpi);
+        month = moment(interval_kpi).format('MM');
+        year = moment(interval_kpi).format('YYYY');
+        this.meseSelezionato = month;
       }
       this.loadingModalDati = true;
-      this.apiService.getKpiArchivedData(id_kpi,month, year).subscribe((dati: any) =>{
+    this.apiService.getKpiArchivedRawData(id_kpi,month, year).subscribe((dati: any) =>{
         this.fitroDataById = dati;
         console.log(dati);
         Object.keys(this.fitroDataById).forEach(key => {
@@ -311,6 +314,9 @@ intervalloPeriodo='';
             console.log(e + '#' + this.eventTypeArray[e]);
           })*/
           this.loadingModalDati = false;
+      },
+        error=>{       
+         this.loadingModalDati = false;
       });
   }
 
@@ -321,7 +327,7 @@ intervalloPeriodo='';
     this.id_kpi_temp = id_kpi;
     this.loadingModalDati = true;
   
-    this.apiService.getKpiArchivedData(id_kpi,month, year).subscribe((dati: any) =>{
+    this.apiService.getKpiArchivedRawData(id_kpi,month, year).subscribe((dati: any) =>{
       this.fitroDataById = dati;
       console.log(dati);
       Object.keys(this.fitroDataById).forEach(key => {
@@ -365,7 +371,11 @@ intervalloPeriodo='';
             this.fitroDataById[key].data['empty#'+i] = '##empty##';
           }
         }
-      })
+      },
+        error=>{       
+         this.loadingModalDati = false;
+      }
+      )
         
 
         //****console.log("array tempo",this.arrayPeriodo);
@@ -572,24 +582,30 @@ getNumeroKPI(){
     this.exportAsExcelFile(this.fitroDataById, 'sample');
   }*/
  
-fireEvent()
+/*fireEvent()
 {
 /*const ws: XLSX.WorkSheet=XLSX.utils.table_to_sheet(this.table.nativeElement);
   const wb: XLSX.WorkBook = XLSX.utils.book_new();
  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
     XLSX.writeFile(wb, 'Export.csv');*/
   
-    const ws: XLSX.WorkSheet = XLSX.utils.json_to_sheet(this.fitroDataById);
+ //   const ws: XLSX.WorkSheet = XLSX.utils.json_to_sheet(this.fitroDataById);
 
     /* generate workbook and add the worksheet */
-    const wb: XLSX.WorkBook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+ //   const wb: XLSX.WorkBook = XLSX.utils.book_new();
+//    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
     
     /* save to file */
-    XLSX.writeFile(wb, 'SheetJS.csv');
+//    XLSX.writeFile(wb, 'SheetJS.csv');
   
  
-}
+//}
+  fireEvent() {
+    const ws: XLSX.WorkSheet = XLSX.utils.table_to_sheet(this.table.nativeElement);
+    const wb: XLSX.WorkBook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    XLSX.writeFile(wb, 'Export.csv');
+  }
 
 public exportAsExcelFile(json: any[], excelFileName: string): void {
     

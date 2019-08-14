@@ -12,7 +12,6 @@ namespace Quantis.WorkFlow.APIBase.Framework
     public class ErrorHandlingMiddleware
     {
         private readonly RequestDelegate next;
-        private readonly WorkFlowPostgreSqlContext _dbContext;
         public ErrorHandlingMiddleware(RequestDelegate next)
         {
             this.next = next;
@@ -58,7 +57,13 @@ namespace Quantis.WorkFlow.APIBase.Framework
             }
             if(context.Response.StatusCode== (int)HttpStatusCode.Unauthorized)
             {
-                var results = JsonConvert.SerializeObject(new { error = "Not Authorized!" });
+                var results = JsonConvert.SerializeObject(new { error = "Login not found!" });
+                context.Response.ContentType = "application/json";
+                return context.Response.WriteAsync(results);
+            }
+            if (context.Response.StatusCode == (int)HttpStatusCode.Forbidden)
+            {
+                var results = JsonConvert.SerializeObject(new { error = "Permission denied! Forbidden" });
                 context.Response.ContentType = "application/json";
                 return context.Response.WriteAsync(results);
             }

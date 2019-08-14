@@ -73,7 +73,7 @@ namespace Quantis.WorkFlow.Controllers
         {
             return _dataAPI.GetAllUsers();
         }
-        [Authorize(WorkFlowPermissions.VIEW_CONFIGURATIONS)]
+        [Authorize(WorkFlowPermissions.VIEW_CONFIGURATION_USER_ROLES)]
         [HttpGet("GetUsersByRoleId")]
         public List<UserDTO> GetUsersByRoleId(int roleId)
         {
@@ -170,8 +170,8 @@ namespace Quantis.WorkFlow.Controllers
             if (data != null) {
                 return Ok(data);
             }
-            var json = new { error = "Login Error", description = "Username o Password errati." };
-            return StatusCode(StatusCodes.Status401Unauthorized, json);
+            var json = new { error = "Errore durente il Login", description = "Username o Password errati." };
+            return StatusCode(StatusCodes.Status403Forbidden, json);
         }
         [Authorize(WorkFlowPermissions.BASIC_LOGIN)]
         [HttpGet("Logout")]
@@ -234,11 +234,19 @@ namespace Quantis.WorkFlow.Controllers
         }
         [Authorize(WorkFlowPermissions.BASIC_LOGIN)]
         [HttpGet("GetAllArchivedKPIs")]
-        public List<ARulesDTO> GetAllArchivedKPIs(string month, string year, int id_kpi)
+        public List<ARulesDTO> GetAllArchivedKPIs(string month, string year, string id_kpi)
         {
             var user = HttpContext.User as AuthUser;
             var globalrules=_informationAPI.GetGlobalRulesByUserId(user.UserId);
-            return _dataAPI.GetAllArchiveKPIs(month, year, id_kpi, globalrules);
+            return _dataAPI.GetAllArchivedKPIs(month, year, id_kpi, globalrules);
+        }
+        [Authorize(WorkFlowPermissions.BASIC_LOGIN)]
+        [HttpGet("GetAllKpisByUserId")]
+        public List<CatalogKpiDTO> GetAllKpisByUserId()
+        {
+            var user = HttpContext.User as AuthUser;
+            var globalrules = _informationAPI.GetGlobalRulesByUserId(user.UserId);
+            return _dataAPI.GetAllKpisByUserId(globalrules);
         }
         [Authorize(WorkFlowPermissions.BASIC_LOGIN)]
         [HttpGet("GetRawDataByKpiID")]
@@ -247,11 +255,17 @@ namespace Quantis.WorkFlow.Controllers
             return _dataAPI.GetRawDataByKpiID(id_kpi, month, year);
         }
         [Authorize(WorkFlowPermissions.BASIC_LOGIN)]
-        [HttpGet("GetDetailsArchivedKPI")]
+        [HttpGet("GetArchivedRawDataByKpiID")]
+        public List<ATDtDeDTO> GetArchivedRawDataByKpiID(string id_kpi, string month, string year)
+        {
+            return _dataAPI.GetArchivedRawDataByKpiID(id_kpi, month, year);
+        }
+        [Authorize(WorkFlowPermissions.BASIC_LOGIN)]
+/*      [HttpGet("GetDetailsArchivedKPI")]
         public List<ATDtDeDTO> GetDetailsArchivedKPIs(int idkpi, string month, string year)
         {
             return _dataAPI.GetDetailsArchiveKPI(idkpi, month, year);
-        }
+        }*/
         [Authorize(WorkFlowPermissions.BASIC_LOGIN)]
         [HttpGet("GetAllCustomersKP")]
         public List<KeyValuePair<int, string>> GetAllCustomersKP()
@@ -264,11 +278,21 @@ namespace Quantis.WorkFlow.Controllers
         {
             return _dataAPI.GetAllTRules();
         }
-        //[Authorize(WorkFlowPermissions.BASIC_LOGIN)]
+        [Authorize(WorkFlowPermissions.VIEW_NOTIFIER_EMAILS)]
         [HttpGet("GetEmailNotifiers")]
         public List<EmailNotifierDTO> GetEmailNotifiers(string period)
         {
             return _dataAPI.GetEmailNotifiers(period);
+        }
+ /*       [HttpGet("GetRawIdsFromRulePeriod")]
+        public List<int> GetRawIdsFromRulePeriod(int ruleId, string period)
+        {
+            return _dataAPI.GetRawIdsFromRulePeriod(ruleId, period);
+        }*/
+        [HttpGet("AddArchiveRawData")]
+        public bool AddArchiveRawData(int global_rule_id, string period, string tracking_period)
+        {
+            return _dataAPI.AddArchiveRawData(global_rule_id, period, tracking_period);
         }
     }
 }

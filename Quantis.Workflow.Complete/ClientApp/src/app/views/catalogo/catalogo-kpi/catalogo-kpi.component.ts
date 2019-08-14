@@ -1,6 +1,7 @@
 import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { saveAs } from 'file-saver';
 import { DataTableDirective } from 'angular-datatables';
+import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../../_services/api.service';
 import { LoadingFormService } from '../../../_services/loading-form.service';
 import { Subject } from 'rxjs';
@@ -21,6 +22,7 @@ export class CatalogoKpiComponent implements OnInit {
     private apiService: ApiService,
     private toastr: ToastrService,
     private LoadingFormService: LoadingFormService,
+    private route: ActivatedRoute
   ) {
     $this = this;
   }
@@ -31,6 +33,11 @@ export class CatalogoKpiComponent implements OnInit {
   public ref1: string;
   public ref2: string;
   public ref3: string;
+  public kpiButtonState: any;
+
+  gatheredData = {
+    roleId: 0
+  };
 
   @ViewChild('kpiTable') block: ElementRef;
   @ViewChild('searchCol1') searchCol1: ElementRef;
@@ -210,6 +217,11 @@ export class CatalogoKpiComponent implements OnInit {
     };
     this.getForms();
 
+    this.route.params.subscribe((params) => {
+      this.gatheredData.roleId = parseInt(params['id']) || 0;
+      console.log('this.gatheredData.roleId => ', this.gatheredData.roleId);
+    });
+    this.getPermissions();
   }
 
 
@@ -293,7 +305,7 @@ export class CatalogoKpiComponent implements OnInit {
         break;
     }
     this.apiService.updateCatalogKpi(this.modalData).subscribe(data => {
-      this.getKpis(); // this should refresh the main table on page
+      //this.getKpis(); // this should refresh the main table on page
       this.toastr.success('Valore Aggiornato', 'Success');
       if (modal == 'kpi') {
         $('#kpiModal').modal('toggle').hide();
@@ -483,10 +495,27 @@ export class CatalogoKpiComponent implements OnInit {
     });
   }
 
+  reload(){
+    this.getKpis();
+  }
+
   getForms() {
     this.LoadingFormService.getLoadingForms().subscribe((data: any) => {
       this.allForms = data;
       console.log('forms ', data);
+    });
+  }
+
+  getPermissions(){
+    this.apiService.getPermissionsByRoldId(this.gatheredData.roleId).subscribe( data => {
+      data.array.forEach(permission => {
+        if(permission.EDIT_CATALOG_KPI == 1 || permission.EDIT_CATALOG_KPI == true){
+          console.log('permission.EDIT_CATALOG_KPI => ', permission.EDIT_CATALOG_KPI);
+          this.kpiButtonState = '1';
+        }else{
+          this.kpiButtonState = '';
+        }
+      });
     });
   }
 }

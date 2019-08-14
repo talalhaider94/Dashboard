@@ -15,6 +15,7 @@ namespace Quantis.WorkFlow.Models
         public bool is_ack { get; set; }
         public string period { get; set; }
         public int year { get; set; }
+        public string email_body { get; set; }
         public virtual T_Form Form { get; set; }
 
     }
@@ -24,7 +25,7 @@ namespace Quantis.WorkFlow.Models
         {
             builder.ToTable("t_notifier_logs");
             builder.HasKey(o => o.id);
-            builder.HasOne(o => o.Form).WithMany(o => o.NotifierLogs).IsRequired();
+            builder.HasOne(o => o.Form).WithMany(o => o.NotifierLogs).IsRequired().HasForeignKey(p=>p.id_form);
         }
     }
 }

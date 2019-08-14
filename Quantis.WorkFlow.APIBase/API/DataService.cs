@@ -8,16 +8,20 @@ using Quantis.WorkFlow.Services.DTOs.API;
 using Quantis.WorkFlow.Services.DTOs.BusinessLogic;
 using Quantis.WorkFlow.Services.Framework;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Xml.Linq;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Net;
-using System.Web.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Newtonsoft.Json;
+using System.Net.Http.Headers;
+using System.Web;
 
 namespace Quantis.WorkFlow.APIBase.API
 {
@@ -30,9 +34,8 @@ namespace Quantis.WorkFlow.APIBase.API
         private readonly IMappingService<UserDTO, T_CatalogUser> _userMapper;
         private readonly IMappingService<FormRuleDTO, T_FormRule> _formRuleMapper;
         private readonly IMappingService<CatalogKpiDTO, T_CatalogKPI> _catalogKpiMapper;
-        private readonly IMappingService<CatalogKPILVDTO, vw_CatalogKPI> _vw_catalogKpiMapper;
         private readonly IMappingService<ApiDetailsDTO,T_APIDetail> _apiMapper;
-        private readonly IMappingService<FormAttachmentDTO, T_FormAttachment> _fromAttachmentMapper;        
+        private readonly IMappingService<FormAttachmentDTO, T_FormAttachment> _fromAttachmentMapper;
         private readonly IOracleDataService _oracleAPI;
         private readonly IConfiguration _configuration;
         private readonly ISMTPService _smtpService;
@@ -49,7 +52,6 @@ namespace Quantis.WorkFlow.APIBase.API
             IMappingService<CatalogKpiDTO, T_CatalogKPI> catalogKpiMapper,
             IMappingService<ApiDetailsDTO, T_APIDetail> apiMapper,
             IMappingService<FormAttachmentDTO, T_FormAttachment> fromAttachmentMapper,
-            IMappingService<CatalogKPILVDTO, vw_CatalogKPI> vw_catalogKpiMapper,
             IConfiguration configuration,
             ISMTPService smtpService,
             IOracleDataService oracleAPI,
@@ -62,7 +64,6 @@ namespace Quantis.WorkFlow.APIBase.API
             _userMapper = userMapper;
             _formRuleMapper = formRuleMapper;
             _catalogKpiMapper = catalogKpiMapper;
-            _vw_catalogKpiMapper = vw_catalogKpiMapper;
             _apiMapper = apiMapper;
             _oracleAPI = oracleAPI;
             _fromAttachmentMapper = fromAttachmentMapper;
@@ -77,21 +78,35 @@ namespace Quantis.WorkFlow.APIBase.API
             return true;
 
         }
+        public List<KeyValuePair<int,string>> GetAllCustomersKP()
+        {
+            try
+            {
+                return _dbcontext.Customers.Where(o=>o.customer_id>=1000).OrderBy(p=>p.customer_name).Select(o => new KeyValuePair<int, string>(o.customer_id, o.customer_name)).ToList();
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+        }
         public bool AddUpdateFormRule(FormRuleDTO dto)
         {
             try
             {
-                var entity = new T_FormRule();
-                if (dto.form_id > 0)
+                var entity = _dbcontext.FormRules.FirstOrDefault(o => o.form_id == dto.form_id);
+                if (entity == null)
                 {
-                    entity = _dbcontext.FormRules.FirstOrDefault(o => o.form_id == dto.form_id);
-                }
-                entity = _formRuleMapper.GetEntity(dto, entity);  
-                if(dto.form_id == 0)
-                {
+                    entity = new T_FormRule();
+                    entity = _formRuleMapper.GetEntity(dto, entity);
                     _dbcontext.FormRules.Add(entity);
+
+                }
+                else
+                {
+                    _formRuleMapper.GetEntity(dto, entity);
                 }
                 _dbcontext.SaveChanges();
+
                 return true;
             }
             catch (Exception e)
@@ -99,11 +114,108 @@ namespace Quantis.WorkFlow.APIBase.API
                 throw e;
             }
         }
-        public List<FormAttachmentDTO> GetAttachmentsByFormID(int formId)
+        public List<FormDetialsDTO> GetFormDetials(List<int> formids)
         {
             try
             {
-                return null;
+                return _dbcontext.Forms.Include(p => p.Attachments).Include(q=>q.FormLogs).Where(o => formids.Contains(o.form_id)).Select(o => new FormDetialsDTO() {form_id=o.form_id,attachment_count=o.Attachments.Count,latest_modified_date=o.FormLogs.Any()?o.FormLogs.Max(r=>r.time_stamp):new DateTime(0) }).ToList();
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+        }
+ /*       public List<int> GetRawIdsFromRulePeriod(int ruleId,string period)
+        {
+            try
+            {
+                var config = new List<KPIRegistrationDTO>();
+                using (var client = new HttpClient())
+                {
+                    var con = GetBSIServerURL();
+                    var apiPath = "api/KPIRegistration/GetKPIRegistrations?ruleId="+ ruleId;
+                    var output = QuantisUtilities.FixHttpURLForCall(con, apiPath);
+                    client.BaseAddress = new Uri(output.Item1);
+                    var response = client.GetAsync(output.Item2).Result;
+                    if (response.IsSuccessStatusCode)
+                    {
+
+                        config = JsonConvert.DeserializeObject<List<KPIRegistrationDTO>>(response.Content.ReadAsStringAsync().Result);
+                        var eventResource = config.Select(o => new EventResourceDTO()
+                        {
+                            EventId = o.EventTypeId,
+                            ResourceId = o.ResourceId
+                        }).ToList();
+                        
+                        var rawIds = GetRawIdsFromResource(eventResource, period);
+                        return rawIds;
+                    }
+                    else
+                    {
+                        var e = new Exception(string.Format("KPI registration API not working: basePath: {0} apipath: {1}", client.BaseAddress, apiPath));
+                        throw e;
+                    }
+
+                }
+            }
+            catch(Exception e)
+            {
+                throw e;
+            }
+        }*/
+        public List<EventResourceDTO> GetEventResourceFromRule(int ruleId)
+        {
+            try
+            {
+                var config = new List<KPIRegistrationDTO>();
+                using (var client = new HttpClient())
+                {
+                    var con = GetBSIServerURL();
+                    var apiPath = "/api/KPIRegistration/GetKPIRegistrations?ruleId=" + ruleId;
+                    var output = QuantisUtilities.FixHttpURLForCall(con, apiPath);
+                    client.BaseAddress = new Uri(output.Item1);
+                    var response = client.GetAsync(output.Item2).Result;
+                    if (response.IsSuccessStatusCode)
+                    {
+
+                        config = JsonConvert.DeserializeObject<List<KPIRegistrationDTO>>(response.Content.ReadAsStringAsync().Result);
+                        var eventResource = config.Select(o => new EventResourceDTO()
+                        {
+                            EventId = o.EventTypeId,
+                            ResourceId = o.ResourceId
+                        }).ToList();
+
+                        //var rawIds = GetRawIdsFromResource(eventResource, period);
+                        return eventResource;
+                        //DO THE QUERY TO ARCHIVE
+                    }
+                    else
+                    {
+                        var e = new Exception(string.Format("KPI registration API not working: basePath: {0} apipath: {1}", client.BaseAddress, apiPath));
+                        throw e;
+                    }
+
+                }
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+        }
+        public List<NotifierLogDTO> GetEmailHistory()
+        {
+            try
+            {
+                var entity = _dbcontext.NotifierLogs.ToList();
+                return entity.Select(o => new NotifierLogDTO() {
+                    email_body=o.email_body,
+                    id_form=o.id_form,
+                    is_ack=o.is_ack,
+                    notify_timestamp=o.notify_timestamp,
+                    period=o.period,
+                    remind_timestamp=o.remind_timestamp,
+                    year=o.year
+                }).ToList();
             }
             catch (Exception e)
             {
@@ -188,27 +300,39 @@ namespace Quantis.WorkFlow.APIBase.API
         }
         public bool AddUpdateUser(UserDTO dto)
         {
-            try
+            using (var dbContextTransaction = _dbcontext.Database.BeginTransaction())
             {
-                var entity = new T_CatalogUser();
-                if (dto.id > 0)
+                try
                 {
-                    entity = _dbcontext.CatalogUsers.FirstOrDefault(o => o.id == dto.id);
-                }
-                entity = _userMapper.GetEntity(dto, entity);
+                    var entity = new T_CatalogUser();
+                    if (dto.id > 0)
+                    {
+                        entity = _dbcontext.CatalogUsers.FirstOrDefault(o => o.id == dto.id);
+                    }
+                    entity = _userMapper.GetEntity(dto, entity);
 
-                if (dto.id == 0)
-                {
-                    _dbcontext.CatalogUsers.Add(entity);
+                    if (dto.id == 0)
+                    {
+                        var usr = _dbcontext.TUsers.FirstOrDefault(o => dto.ca_bsi_user_id == o.user_id);
+                        if (usr != null)
+                        {
+                            usr.in_catalog = true;
+                            _dbcontext.SaveChanges(false);
+                            _dbcontext.CatalogUsers.Add(entity);
+                        }
+                    }
+
+                    _dbcontext.SaveChanges(false);
+                    dbContextTransaction.Commit();
+                    return true;
                 }
-                
-                _dbcontext.SaveChanges();
-                return true;
+                catch (Exception e)
+                {
+                    dbContextTransaction.Rollback();
+                    throw e;
+                }
             }
-            catch (Exception e)
-            {
-                throw e;
-            }
+            
         }
 
         public bool AddUpdateWidget(WidgetDTO dto)
@@ -233,7 +357,7 @@ namespace Quantis.WorkFlow.APIBase.API
                 throw e;
             }
         }
-        public bool AddUpdateKpi(CatalogKpiDTO dto)
+        /*public bool AddUpdateKpi(CatalogKpiDTO dto)
         {
             try
             {
@@ -254,6 +378,42 @@ namespace Quantis.WorkFlow.APIBase.API
             {
                 throw e;
             }
+        }*/
+        public bool AddUpdateKpi(CatalogKpiDTO dto)
+        {
+            using (var dbContextTransaction = _dbcontext.Database.BeginTransaction())
+            {
+                try
+                {
+                    var entity = new T_CatalogKPI();
+                    if (dto.id > 0)
+                    {
+                        entity = _dbcontext.CatalogKpi.FirstOrDefault(o => o.id == dto.id);
+                    }
+                    entity = _catalogKpiMapper.GetEntity(dto, entity);
+
+                    if (dto.id == 0)
+                    {
+                        var kpi = _dbcontext.TGlobalRules.FirstOrDefault(o => dto.global_rule_id_bsi == o.global_rule_id);
+                        if (kpi != null)
+                        {
+                            kpi.in_catalog = true;
+                            _dbcontext.SaveChanges(false);
+                            _dbcontext.CatalogKpi.Add(entity);
+                        }
+                    }
+
+                    _dbcontext.SaveChanges(false);
+                    dbContextTransaction.Commit();
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    dbContextTransaction.Rollback();
+                    throw e;
+                }
+            }
+
         }
         public List<GroupDTO> GetAllGroups()
         {
@@ -282,12 +442,12 @@ namespace Quantis.WorkFlow.APIBase.API
             }
 
         }
-        public List<CatalogKPILVDTO> GetAllKpis()
+        public List<CatalogKpiDTO> GetAllKpis()
         {
             try
             {
-                var kpis = _dbcontext.ViewCatalogKPI.ToList();
-                return _vw_catalogKpiMapper.GetDTOs(kpis.ToList());
+                var kpis = _dbcontext.CatalogKpi.Include(o=>o.PrimaryCustomer).Include(o=>o.SecondaryCustomer).Include(o => o.GlobalRule).Include(o => o.Sla).ToList();
+                return _catalogKpiMapper.GetDTOs(kpis.ToList());
             }
             catch (Exception e)
             {
@@ -295,7 +455,23 @@ namespace Quantis.WorkFlow.APIBase.API
             }
 
         }
+        public List<CatalogKpiDTO> GetAllKpisByUserId(List<int> globalruleIds)
+        {
+            try
+            {
+                if (!globalruleIds.Any() || globalruleIds == null)
+                {
+                    return new List<CatalogKpiDTO>();
+                }
+                var kpis = _dbcontext.CatalogKpi.Include(o => o.PrimaryCustomer).Include(o => o.SecondaryCustomer).Include(o => o.GlobalRule).Include(o => o.Sla).Where(o => globalruleIds.Contains(o.global_rule_id_bsi)).ToList();
+                return _catalogKpiMapper.GetDTOs(kpis.ToList());
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
 
+        }
         public List<PageDTO> GetAllPages()
         {
             try
@@ -309,7 +485,20 @@ namespace Quantis.WorkFlow.APIBase.API
             }
             
         }
-
+        public PagedList<UserDTO> GetAllPagedUsers(UserFilterDTO filter)
+        {
+            try
+            {
+                var query = CreateGetUserQuery(filter);
+                filter.OrderBy = _userMapper.SortMap(filter.OrderBy);
+                var users = query.GetPaged(filter);
+                return _userMapper.GetPagedDTOs(users);
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+        }
         public List<UserDTO> GetAllUsers()
         {
             try
@@ -322,6 +511,19 @@ namespace Quantis.WorkFlow.APIBase.API
                 throw e;
             }
             
+        }
+        public List<UserDTO> GetUsersByRoleId(int roleId)
+        {
+            try
+            {
+                var usersids = _dbcontext.UserRoles.Where(o=>o.role_id==roleId).Select(p=>p.user_id).ToList();
+                var users = _dbcontext.CatalogUsers.Where(o => usersids.Contains(o.ca_bsi_user_id ?? 0));
+                return _userMapper.GetDTOs(users.ToList());
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
         }
 
         public List<WidgetDTO> GetAllWidgets()
@@ -373,12 +575,12 @@ namespace Quantis.WorkFlow.APIBase.API
 
         }
 
-        public CatalogKPILVDTO GetKpiById(int Id)
+        public CatalogKpiDTO GetKpiById(int Id)
         {
             try
             {
-                var kpi = _dbcontext.ViewCatalogKPI.FirstOrDefault(o => o.id == Id);
-                return _vw_catalogKpiMapper.GetDTO(kpi);
+                var kpi = _dbcontext.CatalogKpi.Include(o => o.GlobalRule).Include(o => o.PrimaryCustomer).Include(o => o.SecondaryCustomer).Include(o => o.Sla).FirstOrDefault(o => o.id == Id);
+                return _catalogKpiMapper.GetDTO(kpi);
             }
             catch (Exception e)
             {
@@ -429,21 +631,24 @@ namespace Quantis.WorkFlow.APIBase.API
             
         }
 
-        public KPIOnlyContractDTO GetKpiByFormId(int Id)
+        public List<KPIOnlyContractDTO> GetKpiByFormId(int Id)
         {
             try
             {
-                var kpi = _dbcontext.Forms.Include(o => o.CatalogKPI).Single(o => o.form_id == Id);
-                if (kpi.CatalogKPI == null)
+                var kpi = _dbcontext.Forms.Include(o => o.CatalogKPIs).FirstOrDefault(o => o.form_id == Id);
+                if (kpi== null && kpi.CatalogKPIs.Any())
                 {
                     return null;
                 }
-                var dto = new KPIOnlyContractDTO()
+                return kpi.CatalogKPIs.Select(o => new KPIOnlyContractDTO()
                 {
-                    contract = kpi.CatalogKPI.contract,
-                    id_kpi = kpi.CatalogKPI.id_kpi
-                };
-                return dto;
+                    contract = o.contract,
+                    id_kpi = o.id_kpi,
+                    global_rule_id = o.global_rule_id_bsi,
+                    kpi_name_bsi = o.kpi_name_bsi,
+                    target = o.target
+                }).ToList();
+                
 
             }
             catch (Exception e)
@@ -465,6 +670,30 @@ namespace Quantis.WorkFlow.APIBase.API
             }
             
         }
+        public List<FormLVDTO> GetAllForms()
+        {
+            try
+            {
+                var forms = _dbcontext.Forms.Include(o=>o.FormLogs).OrderBy(o => o.form_name).ToList();
+                var daycutoff= _infomationAPI.GetConfiguration("be_restserver", "day_cutoff");
+                return forms.Select(o => new FormLVDTO()
+                {
+                    create_date=o.create_date,
+                    form_description=o.form_description,
+                    form_id=o.form_id,
+                    form_name=o.form_name,
+                    form_owner_id=o.form_owner_id,
+                    modify_date=o.modify_date,
+                    reader_id=o.reader_id,
+                    latest_input_date=o.FormLogs.Any()?o.FormLogs.Max(p=>p.time_stamp):new DateTime(0),
+                    day_cuttoff= (daycutoff==null)?null:daycutoff.Value
+                }).ToList();
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+        }
 
         public bool SumbitForm(SubmitFormDTO dto)
         {
@@ -482,7 +711,14 @@ namespace Quantis.WorkFlow.APIBase.API
                         user_id = dto.user_id,
                         year = dto.year
                     };
+                    var form=_dbcontext.Forms.FirstOrDefault(o => o.form_id == dto.form_id);
+                    if (form != null)
+                    {
+                        form.modify_date = DateTime.Now;
+                        _dbcontext.SaveChanges(false);
+                    }
                     _dbcontext.FormLogs.Add(form_log);
+                    _dbcontext.SaveChanges(false);
                     T_NotifierLog notifier_log = _dbcontext.NotifierLogs.FirstOrDefault(o => o.id_form == form_log.id_form && o.period == form_log.period && o.year == form_log.year);
                     if (notifier_log != null)
                     {
@@ -500,14 +736,8 @@ namespace Quantis.WorkFlow.APIBase.API
                             year = dto.year
                         };
                         _dbcontext.NotifierLogs.Add(notifier_log);
+                        _dbcontext.SaveChanges(false);
                     }
-                    List<T_FormAttachment> attachments = new List<T_FormAttachment>();
-                    foreach(var attach in dto.attachments)
-                    {
-                        attachments.Add(_fromAttachmentMapper.GetEntity(attach, new T_FormAttachment()));
-                    }
-                    _dbcontext.FormAttachments.AddRange(attachments.ToArray());
-                    _dbcontext.SaveChanges(false);
                     if(CallFormAdapter(new FormAdapterDTO() { formID = dto.form_id, localID = dto.locale_id, forms = dto.inputs }))
                     {
                         dbContextTransaction.Commit();
@@ -525,8 +755,38 @@ namespace Quantis.WorkFlow.APIBase.API
                     throw e;
                 }
             };
-            
+        }
+        public List<FormAttachmentDTO> GetAttachmentsByFormId(int formId)
+        {
+            try
+            {
+                var ents=_dbcontext.FormAttachments.Where(o => o.form_id == formId);
+                var dtos = _fromAttachmentMapper.GetDTOs(ents.ToList());
+                return dtos.OrderByDescending(o=>o.create_date).ToList();
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+        }
+        public bool SubmitAttachment(List<FormAttachmentDTO> dto)
+        {
 
+            try
+            {
+                List<T_FormAttachment> attachments = new List<T_FormAttachment>();
+                foreach (var attach in dto)
+                {
+                    attachments.Add(_fromAttachmentMapper.GetEntity(attach, new T_FormAttachment()));
+                }
+                _dbcontext.FormAttachments.AddRange(attachments.ToArray());
+                _dbcontext.SaveChanges();
+                return true;
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
         }
 
         public string GetBSIServerURL()
@@ -547,7 +807,7 @@ namespace Quantis.WorkFlow.APIBase.API
         {
             try
             {
-                var usr = _dbcontext.CatalogUsers.FirstOrDefault(o => o.ca_bsi_account==username);
+                var usr = _dbcontext.CatalogUsers.FirstOrDefault(o => o.ca_bsi_account.ToLower()==username.ToLower());
                 if (usr != null)
                 {
                     var secret_key = _infomationAPI.GetConfiguration("be_restserver","secret_key");
@@ -556,36 +816,51 @@ namespace Quantis.WorkFlow.APIBase.API
                     if (password == db_password)
                     {
                         var token = MD5Hash(usr.userid + DateTime.Now.Ticks);
-                        var res = _oracleAPI.GetUserIdLocaleIdByUserName(usr.ca_bsi_account);
+                        //var res = _oracleAPI.GetUserIdLocaleIdByUserName(usr.ca_bsi_account);
+                        var res = _dbcontext.TUsers.FirstOrDefault(u => u.user_id == usr.ca_bsi_user_id && u.user_status == "ACTIVE" );
                         if (res != null)
                         {
                             _dbcontext.Sessions.Add(new T_Session()
                             {
-                                user_id = res.Item1,
+                                //user_id = res.Item1,
+                                user_id = res.user_id,
                                 user_name = usr.ca_bsi_account,
                                 login_time = DateTime.Now,
                                 session_token = token,
                                 expire_time = DateTime.Now.AddMinutes(getSessionTimeOut())
                             });
                             _dbcontext.SaveChanges();
-                            _cache.Remove(res.Item1);
-                            var permissions=_infomationAPI.GetPermissionsByUserId(res.Item1).Select(o => o.Code).ToList();
-                            _cache.GetOrCreate("Permission_"+res.Item1, entry => permissions);
+                            _cache.Remove("Permission_"+res.user_id);
+                            var permissions=_infomationAPI.GetPermissionsByUserId(res.user_id).Select(o => o.Code).ToList();
+                            _cache.GetOrCreate("Permission_"+res.user_id, entry => permissions);
                             return new LoginResultDTO()
                             {
-                                IsAdmin = usr.user_admin,
-                                IsSuperAdmin = usr.user_sadmin,
                                 Token = token,
-                                UserID = res.Item1,
-                                LocaleID = res.Item2,
+                                UserID = res.user_id,
+                                LocaleID = res.user_locale_id,
                                 UserEmail= usr.mail,
-                                UserName=usr.ca_bsi_account
+                                UserName=usr.ca_bsi_account,
+                                Permissions= permissions
                             };
                             
                         }
                     }
                 }
                 return null;
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+        }
+
+        public void Logout(string token)
+        {
+            try
+            {
+                var sesison=_dbcontext.Sessions.Single(o => o.session_token == token);
+                sesison.login_time = DateTime.Now;
+                _dbcontext.SaveChanges();
             }
             catch (Exception e)
             {
@@ -606,7 +881,7 @@ namespace Quantis.WorkFlow.APIBase.API
 
                     List<string> listRecipients = new List<string>();
                     listRecipients.Add(email);
-                    var emailSubject = "[DashBoard] Reset Password";
+                    var emailSubject = "[KPI Management] Reset Password";
                     var emailBody = "<html>Nuova password: <b>" + randomPassword + "</b></html>";
                     return _smtpService.SendEmail(emailSubject, emailBody, listRecipients);
                 }
@@ -642,53 +917,196 @@ namespace Quantis.WorkFlow.APIBase.API
             catch (Exception e)
             {
                 throw e;
-            }
-            
+            }     
         }
-        
-        public List<ARulesDTO> GetAllArchiveKPIs(string month, string year)
+
+        public bool AddArchiveRawData(int global_rule_id, string period, string tracking_period)
+        {
+            try
+            {
+                using (var con = new NpgsqlConnection(_configuration.GetConnectionString("DataAccessPostgreSqlProvider")))
+                {
+                    con.Open();
+                    var query = @"select r.rule_id from t_rules r left join t_sla_versions sv on r.sla_version_id = sv.sla_version_id left join t_slas s on sv.sla_id = s.sla_id where sv.sla_status = 'EFFECTIVE' and s.sla_status = 'EFFECTIVE' and r.global_rule_id = :global_rule_id";
+                    var command = new NpgsqlCommand(query, con);
+                    command.CommandType = CommandType.Text;
+                    command.Parameters.AddWithValue(":global_rule_id", global_rule_id);
+                    using (var reader = command.ExecuteReader())
+                    {
+                        int rule_id = 0;
+                        while (reader.Read())
+                        {
+                            rule_id = (reader.IsDBNull(reader.GetOrdinal("rule_id")) ? 0 : reader.GetInt32(reader.GetOrdinal("rule_id")));
+                        }
+                        if(rule_id == 0) { return false;  } // EXIT IF NO RULE_ID
+
+                        List<EventResourceDTO> eventResource = GetEventResourceFromRule(rule_id);
+                        string completewhereStatement = "";
+                        var whereStatements = new List<string>();
+                        foreach (var d in eventResource)
+                        {
+                            if (d.ResourceId == -1)
+                            {
+                                whereStatements.Add(string.Format("(event_type_id={0})", d.EventId));
+                            }
+                            else
+                            {
+                                whereStatements.Add(string.Format("(resource_id={0} AND event_type_id={1})", d.ResourceId, d.EventId));
+                            }
+                        }
+                        if (eventResource.Any())
+                        {
+                            completewhereStatement = string.Format(" AND ({0})", string.Join(" OR ", whereStatements));
+                        }else{ return false; } //EXIT IF NO eventResource
+                        List<string> periods = new List<string>();
+                        string month = period.Split('/').First();
+                        string year = "20"+period.Split('/').Last();
+                        switch (tracking_period)
+                        {
+                            case "TRIMESTRALE":
+                                if (month == "03"){ periods.Add(year + "_01"); periods.Add(year + "_02"); periods.Add(year + "_03"); }
+                                if (month == "06"){ periods.Add(year + "_04"); periods.Add(year + "_05"); periods.Add(year + "_06"); }
+                                if (month == "09"){ periods.Add(year + "_07"); periods.Add(year + "_08"); periods.Add(year + "_09"); }
+                                if (month == "12"){ periods.Add(year + "_10"); periods.Add(year + "_11"); periods.Add(year + "_12"); }
+                                break;
+                            case "QUADRIMESTRALE":
+                                if (month == "04") { periods.Add(year + "_01"); periods.Add(year + "_02"); periods.Add(year + "_03"); periods.Add(year + "_04"); }
+                                if (month == "08") { periods.Add(year + "_05"); periods.Add(year + "_06"); periods.Add(year + "_07"); periods.Add(year + "_08"); }
+                                if (month == "12") { periods.Add(year + "_09"); periods.Add(year + "_10"); periods.Add(year + "_11"); periods.Add(year + "_12"); }
+                                break;
+                            case "SEMESTRALE":
+                                if (month == "06") { periods.Add(year + "_01"); periods.Add(year + "_02"); periods.Add(year + "_03"); periods.Add(year + "_04"); periods.Add(year + "_05"); periods.Add(year + "_06"); }
+                                if (month == "12") { periods.Add(year + "_07"); periods.Add(year + "_08"); periods.Add(year + "_09"); periods.Add(year + "_10"); periods.Add(year + "_11"); periods.Add(year + "_12"); }
+                                break;
+                            case "ANNUALE":
+                                if (month == "12") { periods.Add(year + "_01"); periods.Add(year + "_02"); periods.Add(year + "_03"); periods.Add(year + "_04"); periods.Add(year + "_05"); periods.Add(year + "_06"); periods.Add(year + "_07"); periods.Add(year + "_08"); periods.Add(year + "_09"); periods.Add(year + "_10"); periods.Add(year + "_11"); periods.Add(year + "_12"); }
+                                break;
+                            default:
+                                periods.Add(year + "_" + month);
+                                break;
+                        }
+
+                        foreach(var tmp_period in periods)
+                        {
+                            using (var conOrig = new NpgsqlConnection(_configuration.GetConnectionString("DataAccessPostgreSqlProvider")))
+                            {
+                                conOrig.Open();
+                                var sp = @"insert into t_dt_de_archive_swap (created_by, event_type_id, reader_time_stamp, resource_id, time_stamp, data_source_id, raw_data_id, create_date, corrected_by, data, modify_date, reader_id, event_source_type_id, event_state_id, partner_raw_data_id, hash_data_key, global_rule_id) select created_by, event_type_id, reader_time_stamp, resource_id, time_stamp, data_source_id, raw_data_id, create_date, corrected_by, data, modify_date, reader_id, event_source_type_id, event_state_id, partner_raw_data_id, hash_data_key, " + global_rule_id + " as global_rule_id from t_dt_de_3_" + tmp_period + " WHERE 1=1 " + completewhereStatement;
+                                var commandOrig = new NpgsqlCommand(sp, conOrig);
+                                commandOrig.CommandType = CommandType.Text;
+                                commandOrig.ExecuteScalar();
+                                conOrig.Close();
+                            }
+                        }
+                    }
+                }
+                return true;
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+        }
+        public void AddArchiveKPI(ARulesDTO dto)
         {
             try
             {
                 using (var con = new NpgsqlConnection(_configuration.GetConnectionString("DataAccessPostgreSqlArchivedProvider")))
                 {
                     con.Open();
+                    var sp = @"insert into a_rules (id_kpi,name_kpi,interval_kpi,value_kpi,ticket_id,close_timestamp_ticket,archived,customer_name,contract_name,kpi_name_bsi,rule_id_bsi,global_rule_id,tracking_period,symbol) values (:id_kpi,:name_kpi,:interval_kpi,:value_kpi,:ticket_id,:close_timestamp_ticket,:archived,:customer_name,:contract_name,:kpi_name_bsi,:rule_id_bsi,:global_rule_id,:tracking_period,:symbol)";
+                    var command = new NpgsqlCommand(sp, con);
+                    command.CommandType = CommandType.Text;
+                    command.Parameters.AddWithValue(":id_kpi", dto.id_kpi);
+                    command.Parameters.AddWithValue(":name_kpi", dto.name_kpi);
+                    command.Parameters.AddWithValue(":interval_kpi", dto.interval_kpi);
+                    command.Parameters.AddWithValue(":value_kpi", dto.value_kpi);
+                    command.Parameters.AddWithValue(":ticket_id", dto.ticket_id);
+                    command.Parameters.AddWithValue(":close_timestamp_ticket", dto.close_timestamp_ticket);
+                    command.Parameters.AddWithValue(":archived", dto.archived);
+                    command.Parameters.AddWithValue(":customer_name", dto.customer_name);
+                    command.Parameters.AddWithValue(":contract_name", dto.contract_name);
+                    command.Parameters.AddWithValue(":kpi_name_bsi", dto.kpi_name_bsi);
+                    command.Parameters.AddWithValue(":rule_id_bsi", dto.rule_id_bsi);
+                    command.Parameters.AddWithValue(":global_rule_id", dto.global_rule_id);
+                    command.Parameters.AddWithValue(":tracking_period", dto.tracking_period);
+                    command.Parameters.AddWithValue(":symbol", dto.symbol);
+                    command.ExecuteScalar();
+                }
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+        }
+        public List<ARulesDTO> GetAllArchivedKPIs(string month, string year, string id_kpi,List<int> globalruleIds)
+        {
+            try
+            {
+                if (!globalruleIds.Any() || globalruleIds == null )
+                {
+                    return new List<ARulesDTO>();
+                }
+                using (var con = new NpgsqlConnection(_configuration.GetConnectionString("DataAccessPostgreSqlArchivedProvider")))
+                {
+                    con.Open();
 
-                    var whereclause = " where (interval_kpi >=:interval_kpi and interval_kpi < ( :interval_kpi + interval '1 month') )";
-                    var sp = @"select * from a_rules";
-                    if ( (month != null) && (year != null))
+                    var whereclause = " and (interval_kpi >=:interval_kpi and interval_kpi < (  :interval_kpi + interval '1 month') )";
+                    var whereYear = " and (interval_kpi >=:interval_kpi and interval_kpi < (  :interval_kpi + interval '1 year') )";
+                    var filterByKpiId = " and global_rule_id = :global_rule_id";
+                    var sp = @"select * from a_rules where 1=1";
+                    if ( (month != null && month != "00") && (year != null))
                     {
                         sp += whereclause;
                     }
-                    
+                    if( (month == "00" || month == null) && (year != null))
+                    {
+                        sp += whereYear;
+                    }
+                    if (id_kpi != null )
+                    {
+                        sp += filterByKpiId;
+                    }
+                    sp += " and global_rule_id in (" +string.Join(',',globalruleIds) + ")";
+                    sp += " order by close_timestamp_ticket desc";
                     var command = new NpgsqlCommand(sp, con);
 
-                    if ((month != null) && (year != null))
+                    if ((month != null && month != "00") && (year != null))
                     {
                         command.Parameters.AddWithValue(":interval_kpi", new NpgsqlTypes.NpgsqlDate(Int32.Parse(year), Int32.Parse(month), Int32.Parse("01")));
                     }
-
+                    if ((month == "00" || month == null) && (year != null))
+                    {
+                        command.Parameters.AddWithValue(":interval_kpi", new NpgsqlTypes.NpgsqlDate(Int32.Parse(year), Int32.Parse("01"), Int32.Parse("01")));
+                    }
+                    if ((id_kpi != null))
+                    {
+                        command.Parameters.AddWithValue(":global_rule_id", Int32.Parse(id_kpi));
+                    }
                     using (var reader = command.ExecuteReader())
                     {
                         List<ARulesDTO> list = new List<ARulesDTO>();
                         while (reader.Read())
                         {
-                            //id_kpi | name_kpi |    interval_kpi     | value_kpi | ticket_id | close_timestamp_ticket | archived
                             ARulesDTO arules = new ARulesDTO();
-                            arules.id_kpi = reader.GetInt32(reader.GetOrdinal("id_kpi"));
+                            arules.id_kpi = reader.GetString(reader.GetOrdinal("id_kpi"));
                             arules.name_kpi = reader.GetString(reader.GetOrdinal("name_kpi"));
                             arules.interval_kpi = reader.GetDateTime(reader.GetOrdinal("interval_kpi"));
-                            arules.value_kpi = reader.GetInt32(reader.GetOrdinal("value_kpi"));
+                            arules.value_kpi = reader.GetString(reader.GetOrdinal("value_kpi"));
                             arules.ticket_id = reader.GetInt32(reader.GetOrdinal("ticket_id"));
                             arules.close_timestamp_ticket = reader.GetDateTime(reader.GetOrdinal("close_timestamp_ticket"));
                             arules.archived = reader.GetBoolean(reader.GetOrdinal("archived"));
-
+                            arules.customer_name = reader.GetString(reader.GetOrdinal("customer_name"));
+                            arules.contract_name = reader.GetString(reader.GetOrdinal("contract_name"));
+                            arules.kpi_name_bsi = reader.GetString(reader.GetOrdinal("kpi_name_bsi"));
+                            arules.rule_id_bsi = reader.GetInt32(reader.GetOrdinal("rule_id_bsi"));
+                            arules.global_rule_id = reader.GetInt32(reader.GetOrdinal("global_rule_id"));
+                            arules.tracking_period = reader.GetString(reader.GetOrdinal("tracking_period"));
+                            arules.symbol = (reader.IsDBNull(reader.GetOrdinal("symbol")) ? null : reader.GetString(reader.GetOrdinal("symbol")));
                             list.Add(arules);
                         }
-
                         return list;
                     }
-                      
                 }
             }
             catch (Exception e)
@@ -700,19 +1118,28 @@ namespace Quantis.WorkFlow.APIBase.API
         {
             try
             {
-                var kpi = _dbcontext.CatalogKpi.FirstOrDefault(o => o.id == Id);
+                var kpi = _dbcontext.CatalogKpi.Include(o=>o.PrimaryCustomer).Include(o=>o.SecondaryCustomer).FirstOrDefault(o => o.id == Id);
+                var psl = _oracleAPI.GetPsl(DateTime.Now.AddMonths(-1).ToString("MM/yy"), kpi.global_rule_id_bsi, kpi.tracking_period);
+                string contractPartyName = (kpi.SecondaryCustomer == null) ? kpi.PrimaryCustomer.customer_name : kpi.PrimaryCustomer.customer_name + string.Format(" ({0})", kpi.SecondaryCustomer.customer_name);
                 return new CreateTicketDTO()
                 {
-                    Description = kpi.kpi_description,
+                    Description = GenerateDiscriptionFromKPI(kpi, (psl != null && psl.Any())?psl.FirstOrDefault().result.Contains("[Non Calcolato]")?"[Non Calcolato]":psl.FirstOrDefault().provided_ce + " " + psl.FirstOrDefault().symbol + " " + psl.FirstOrDefault().result:"[Non Calcolato]"),
                     ID_KPI = kpi.id_kpi,
-                    Group = kpi.group_type,
-                    Period = DateTime.Now.AddMonths(-1).Month + "/" + DateTime.Now.AddMonths(-1).Year,
+                    GroupCategoryId=kpi.primary_contract_party,
+                    Period = DateTime.Now.AddMonths(-1).ToString("MM/yy"),
                     Reference1 = kpi.referent_1,
                     Reference2 = kpi.referent_2,
                     Reference3 = kpi.referent_3,
-                    Summary=kpi.contract+"|"+kpi.id_kpi,
-                    primary_contract_party=kpi.primary_contract_party,
-                    secondary_contract_party=kpi.secondary_contract_party
+                    SecondaryContractParty=kpi.secondary_contract_party,
+                    Summary=kpi.id_kpi+"|"+kpi.kpi_name_bsi+"|"+kpi.contract+"|"+ contractPartyName,
+                    zz1_contractParties = kpi.primary_contract_party + "|" + (kpi.secondary_contract_party == null ? "" : kpi.secondary_contract_party.ToString()),
+                    zz2_calcValue= 
+                        (psl != null && psl.Any()) ? 
+                        psl.FirstOrDefault().result.Contains("[Non Calcolato]") ? "[Non Calcolato]"
+                        : psl.FirstOrDefault().provided_ce + " " + psl.FirstOrDefault().symbol + " " + psl.FirstOrDefault().result 
+                        :
+                        "[Non Calcolato]",
+                    zz3_KpiIds=kpi.id+"|"+kpi.global_rule_id_bsi
                 };
 
             }
@@ -722,11 +1149,153 @@ namespace Quantis.WorkFlow.APIBase.API
             }
 
         }
+        private string GenerateDiscriptionFromKPI(T_CatalogKPI kpi,string calc)
+        {
+            string skeleton = "INDICATORE: {0}\n" +
+                "DESCRIZIONE: {1}\n" +
+                "ESCALATION: {2}\n" +
+                "TARGET: {3}\n" +
+                "TIPILOGIA: {4}\n" +
+                "VALORE: {5}\n" +
+                "AUTORE: {6}\n" +
+                "FREQUENZA: {7}";
+            return string.Format(skeleton, kpi.kpi_name_bsi ?? "", kpi.kpi_description ?? "", kpi.escalation ?? "", kpi.target ?? "", kpi.kpi_type ?? "", calc, kpi.source_name ?? "", kpi.tracking_period ?? "");
+        }
+
+        public List<ATDtDeDTO> GetRawDataByKpiID(string id_kpi, string month, string year)
+        {
+            try
+            {
+                List<ATDtDeDTO> list = new List<ATDtDeDTO>();
+                using (var con = new NpgsqlConnection(_configuration.GetConnectionString("DataAccessPostgreSqlProvider")))
+                {
+                    con.Open();
+                    var query = @"select r.rule_id from t_rules r left join t_sla_versions sv on r.sla_version_id = sv.sla_version_id left join t_slas s on sv.sla_id = s.sla_id where sv.sla_status = 'EFFECTIVE' and s.sla_status = 'EFFECTIVE' and r.global_rule_id = :global_rule_id";
+                    var command = new NpgsqlCommand(query, con);
+                    command.CommandType = CommandType.Text;
+                    command.Parameters.AddWithValue(":global_rule_id", Int32.Parse(id_kpi));
+                    using (var readerTmp = command.ExecuteReader())
+                    {
+                        int rule_id = 0;
+                        while (readerTmp.Read())
+                        {
+                            rule_id = (readerTmp.IsDBNull(readerTmp.GetOrdinal("rule_id")) ? 0 : readerTmp.GetInt32(readerTmp.GetOrdinal("rule_id")));
+                        }
+                        if (rule_id == 0) { return list; } // EXIT IF NO RULE_ID
+
+                        List<EventResourceDTO> eventResource = GetEventResourceFromRule(rule_id);
+                        string completewhereStatement = "";
+                        var whereStatements = new List<string>();
+                        foreach (var d in eventResource)
+                        {
+                            if (d.ResourceId == -1)
+                            {
+                                whereStatements.Add(string.Format("(event_type_id={0})", d.EventId));
+                            }
+                            else
+                            {
+                                whereStatements.Add(string.Format("(resource_id={0} AND event_type_id={1})", d.ResourceId, d.EventId));
+                            }
+                        }
+                        if (eventResource.Any())
+                        {
+                            completewhereStatement = string.Format(" AND ({0})", string.Join(" OR ", whereStatements));
+                        }
+                        else { return list; } //EXIT IF NO eventResource
 
 
 
-
-        public List<ATDtDeDTO> GetDetailsArchiveKPI(int idkpi, string month, string year)
+                        
+                        using (var con2 = new NpgsqlConnection(_configuration.GetConnectionString("DataAccessPostgreSqlProvider")))
+                        {
+                            con2.Open();
+                            var tablename2 = "t_dt_de_3_" + year + "_" + month;
+                            var sp2 = @"select * from " + tablename2 + " where 1=1 " + completewhereStatement + " order by modify_date desc ";
+                            var command2 = new NpgsqlCommand(sp2, con2);
+                            using (var reader = command2.ExecuteReader())
+                            {
+                                while (reader.Read())
+                                {
+                                    ATDtDeDTO atdtde = new ATDtDeDTO();
+                                    atdtde.created_by = reader.GetInt32(reader.GetOrdinal("created_by"));
+                                    atdtde.event_type_id = reader.GetInt32(reader.GetOrdinal("event_type_id"));
+                                    atdtde.reader_time_stamp = Convert.ToDateTime(reader.GetDateTime(reader.GetOrdinal("reader_time_stamp")));
+                                    atdtde.resource_id = reader.GetInt32(reader.GetOrdinal("resource_id"));
+                                    atdtde.time_stamp = Convert.ToDateTime(reader.GetDateTime(reader.GetOrdinal("time_stamp")));
+                                    atdtde.data_source_id = (reader.IsDBNull(reader.GetOrdinal("data_source_id")) ? null : reader.GetString(reader.GetOrdinal("data_source_id")));
+                                    atdtde.raw_data_id = reader.GetInt32(reader.GetOrdinal("raw_data_id"));
+                                    atdtde.create_date = Convert.ToDateTime(reader.GetDateTime(reader.GetOrdinal("create_date")));
+                                    atdtde.corrected_by = reader.GetInt32(reader.GetOrdinal("corrected_by"));
+                                    atdtde.data = reader.GetString(reader.GetOrdinal("data"));
+                                    atdtde.modify_date = Convert.ToDateTime(reader.GetDateTime(reader.GetOrdinal("modify_date")));
+                                    atdtde.reader_id = reader.GetInt32(reader.GetOrdinal("reader_id"));
+                                    atdtde.event_source_type_id = (reader.IsDBNull(reader.GetOrdinal("event_source_type_id")) ? null : reader.GetInt32(reader.GetOrdinal("event_source_type_id")).ToString());
+                                    atdtde.event_state_id = reader.GetInt32(reader.GetOrdinal("event_state_id"));
+                                    atdtde.partner_raw_data_id = reader.GetInt32(reader.GetOrdinal("partner_raw_data_id"));
+                                    atdtde.hash_data_key = (reader.IsDBNull(reader.GetOrdinal("hash_data_key")) ? null : reader.GetString(reader.GetOrdinal("hash_data_key")));
+                                    atdtde.id_kpi = id_kpi;//reader.GetInt32(reader.GetOrdinal("id_kpi"));
+                                    list.Add(atdtde);
+                                }
+                            }
+                        }
+                    }
+                }
+                return list;
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+        }
+        public List<ATDtDeDTO> GetArchivedRawDataByKpiID(string id_kpi, string month, string year)
+        {
+            try
+            {
+                using (var con = new NpgsqlConnection(_configuration.GetConnectionString("DataAccessPostgreSqlArchivedProvider")))
+                {
+                    con.Open();
+                    List<ATDtDeDTO> list = new List<ATDtDeDTO>();
+                    var tablename = "a_dt_de_" + year + "_" + month;
+                    if (TableExists(tablename))
+                    {
+                    var sp = @"select * from " + tablename + " WHERE global_rule_id = :global_rule_id order by modify_date desc";
+                    var command = new NpgsqlCommand(sp, con);
+                    command.Parameters.AddWithValue(":global_rule_id", Int32.Parse(id_kpi));
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            ATDtDeDTO atdtde = new ATDtDeDTO();
+                            atdtde.created_by = reader.GetInt32(reader.GetOrdinal("created_by"));
+                            atdtde.event_type_id = reader.GetInt32(reader.GetOrdinal("event_type_id"));
+                            atdtde.reader_time_stamp = Convert.ToDateTime(reader.GetDateTime(reader.GetOrdinal("reader_time_stamp")));
+                            atdtde.resource_id = reader.GetInt32(reader.GetOrdinal("resource_id"));
+                            atdtde.time_stamp = Convert.ToDateTime(reader.GetDateTime(reader.GetOrdinal("time_stamp")));
+                            atdtde.data_source_id = (reader.IsDBNull(reader.GetOrdinal("data_source_id")) ? null : reader.GetString(reader.GetOrdinal("data_source_id")));
+                            atdtde.raw_data_id = reader.GetInt32(reader.GetOrdinal("raw_data_id"));
+                            atdtde.create_date = Convert.ToDateTime(reader.GetDateTime(reader.GetOrdinal("create_date")));
+                            atdtde.corrected_by = reader.GetInt32(reader.GetOrdinal("corrected_by"));
+                            atdtde.data = reader.GetString(reader.GetOrdinal("data"));
+                            atdtde.modify_date = Convert.ToDateTime(reader.GetDateTime(reader.GetOrdinal("modify_date")));
+                            atdtde.reader_id = reader.GetInt32(reader.GetOrdinal("reader_id"));
+                            atdtde.event_source_type_id = (reader.IsDBNull(reader.GetOrdinal("event_source_type_id")) ? null : reader.GetInt32(reader.GetOrdinal("event_source_type_id")).ToString());
+                            atdtde.event_state_id = reader.GetInt32(reader.GetOrdinal("event_state_id"));
+                            atdtde.partner_raw_data_id = reader.GetInt32(reader.GetOrdinal("partner_raw_data_id"));
+                            atdtde.hash_data_key = (reader.IsDBNull(reader.GetOrdinal("hash_data_key")) ? null : reader.GetString(reader.GetOrdinal("hash_data_key")));
+                            atdtde.id_kpi = id_kpi;//reader.GetInt32(reader.GetOrdinal("id_kpi"));
+                            list.Add(atdtde);
+                        }
+                    }
+                    }
+                    return list;
+                }
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+        }
+ /*       public List<ATDtDeDTO> GetDetailsArchiveKPI(int idkpi, string month, string year) // NON USATA
         {
             try
             {
@@ -747,9 +1316,7 @@ namespace Quantis.WorkFlow.APIBase.API
                             
                             while (reader.Read())
                             {
-
                                 //created_by | event_type_id | reader_time_stamp | resource_id | time_stamp | data_source_id | raw_data_id | create_date | corrected_by | data | modify_date | reader_id | event_source_type_id | event_state_id | partner_raw_data_id | hash_data_key | id_kpi
-
                                 ATDtDeDTO atdtde = new ATDtDeDTO();
                                 atdtde.created_by = reader.GetInt32(reader.GetOrdinal("created_by"));
                                 atdtde.event_type_id = reader.GetInt32(reader.GetOrdinal("event_type_id"));
@@ -763,12 +1330,11 @@ namespace Quantis.WorkFlow.APIBase.API
                                 atdtde.data = reader.GetString(reader.GetOrdinal("data"));
                                 atdtde.modify_date = reader.GetDateTime(reader.GetOrdinal("modify_date"));
                                 atdtde.reader_id = reader.GetInt32(reader.GetOrdinal("reader_id"));
-                                atdtde.event_source_type_id = reader.GetInt32(reader.GetOrdinal("event_source_type_id"));
+                                atdtde.event_source_type_id = reader.GetInt32(reader.GetOrdinal("event_source_type_id")).ToString();
                                 atdtde.event_state_id = reader.GetInt32(reader.GetOrdinal("event_state_id"));
                                 atdtde.partner_raw_data_id = reader.GetInt32(reader.GetOrdinal("partner_raw_data_id"));
                                 atdtde.hash_data_key = reader.GetString(reader.GetOrdinal("hash_data_key"));
-                                atdtde.id_kpi = reader.GetInt32(reader.GetOrdinal("id_kpi"));
-
+                                atdtde.id_kpi = reader.GetString(reader.GetOrdinal("id_kpi"));
 
                                 list.Add(atdtde);
                             }                     
@@ -782,19 +1348,150 @@ namespace Quantis.WorkFlow.APIBase.API
             {
                 throw e;
             }
-        }
+        } */
         public List<FormAttachmentDTO> GetAttachmentsByKPIID(int kpiId)
         {
             try
             {
-                var form=_dbcontext.CatalogKpi.Single(o=>o.id==kpiId).id_form;
-                if (form == 0)
+                var kpi = _dbcontext.CatalogKpi.Single(o => o.id == kpiId);
+                var form= kpi.id_form;
+                if (form==null || form == 0)
                 {
-                    throw new Exception("No form Available for KPI " + kpiId);
+                    return new List<FormAttachmentDTO>();
                 }
                 var attachments = _dbcontext.Forms.Include(o => o.Attachments).Single(p => p.form_id == form).Attachments;
-                return _fromAttachmentMapper.GetDTOs(attachments.ToList());
+                if (kpi.month != null)
+                {
+                    if (kpi.month.Split(',').Count() == 12)
+                    {
+                        attachments = attachments.Where(o =>o.create_date.Year==DateTime.Now.AddMonths(-1).Year && o.create_date.Month == DateTime.Now.AddMonths(-1).Month).ToList();
+                    }
+                    else if (kpi.month.Split(',').Count() == 4)
+                    {
+                        attachments = attachments.Where(o => o.create_date.Year == DateTime.Now.AddMonths(-1).Year && o.create_date.Month <= DateTime.Now.AddMonths(-1).Month && o.create_date.Month >= DateTime.Now.AddMonths(-4).Month).ToList();
+                    }
+                    else if(kpi.month.Split(',').Count() == 2)
+                    {
+                        attachments = attachments.Where(o => o.create_date.Year == DateTime.Now.AddMonths(-1).Year && o.create_date.Month <= DateTime.Now.AddMonths(-1).Month && o.create_date.Month >= DateTime.Now.AddMonths(-7).Month).ToList();
+                    }
+                }
+                return _fromAttachmentMapper.GetDTOs(attachments.ToList()).OrderByDescending(o=>o.create_date).ToList();
 
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+        }
+        public List<KeyValuePair<int,string>> GetKPITitolo(List<int> ids)
+        {
+            try
+            {
+                var form = _dbcontext.CatalogKpi.Where(o=>ids.Contains(o.id));
+                return form.Select(o => new KeyValuePair<int, string>(o.id, o.short_name)).ToList();
+              
+
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+        }
+        public List<EmailNotifierDTO> GetEmailNotifiers(string period)
+        {
+            try
+            {
+                var split = period.Split('/');
+                var month = split[0];
+                var year = split[1];
+                var notifiers = month.Length > 0 ?
+                        _dbcontext.EmailNotifiers.Include(o => o.Form).Where(p => p.notify_date.ToString("MM/yy") == period).ToList()
+                    :   _dbcontext.EmailNotifiers.Include(o => o.Form).Where(p => p.notify_date.ToString("yy") == year).ToList();
+
+                
+                return notifiers.Select(o => new EmailNotifierDTO()
+                {
+                    email_body = o.email_body,
+                    id = o.id,
+                    form_name = o.Form.form_name,
+                    notify_date = o.notify_date,
+                    period = o.period,
+                    recipient = o.recipient,
+                    type = o.type,
+                    user_domain = o.user_domain
+                }).ToList();
+
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+        }
+        public List<TUserDTO> GetAllTUsers()
+        {
+            try
+            {
+                var usr = _dbcontext.TUsers.Where(o => o.in_catalog==false && (o.user_status == "ACTIVE" || o.user_status == "INACTIVE") && o.user_organization_name != "INTERNAL").OrderByDescending(o => o.user_create_date);
+                var dtos = usr.Select(o => new TUserDTO()
+                {
+                    user_email = o.user_email,
+                    user_id = o.user_id,
+                    user_locale_id = o.user_locale_id,
+                    user_name = o.user_name,
+                    user_status = o.user_status,
+                    user_organization_name = o.user_organization_name
+                }).ToList();
+                return dtos;
+
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+        }
+        public List<TRuleDTO> GetAllTRules()
+        {
+            try
+            {
+                using (var con = new NpgsqlConnection(_configuration.GetConnectionString("DataAccessPostgreSqlProvider")))
+                {
+                    con.Open();
+                    List<TRuleDTO> list = new List<TRuleDTO>();
+
+                    var sp = @"select r.rule_id, r.global_rule_id, r.rule_name, r.rule_description, r.sla_version_id, r.service_level_target, r.rule_create_date, r.rule_modify_date, sv.sla_id, s.sla_name, sv.version_number, s.customer_id as primary_contract_party_id, c.customer_name as primary_contract_party_name, s.additional_customer_id as secondary_contract_party_id, c2.customer_name as secondary_contract_party_name
+                            from t_rules r
+                            left join t_sla_versions sv on r.sla_version_id = sv.sla_version_id
+                            left join t_global_rules gr on r.global_rule_id = gr.global_rule_id
+                            left join t_slas s on sv.sla_id = s.sla_id
+                            left join t_customers c on s.customer_id = c.customer_id
+                            left join t_customers c2 on s.additional_customer_id = c2.customer_id
+                            where sv.sla_status = 'EFFECTIVE' and r.is_effective = 'Y' and s.sla_status = 'EFFECTIVE' and gr.in_catalog = false order by s.sla_name, r.rule_name";
+                    var command = new NpgsqlCommand(sp, con);
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        { 
+                            TRuleDTO tRule = new TRuleDTO();
+                            tRule.rule_id = reader.GetInt32(reader.GetOrdinal("rule_id"));
+                            tRule.global_rule_id = reader.GetInt32(reader.GetOrdinal("global_rule_id"));
+                            tRule.rule_name = reader.GetString(reader.GetOrdinal("rule_name"));
+                            tRule.rule_description = (reader.IsDBNull(reader.GetOrdinal("rule_description")) ? null : reader.GetString(reader.GetOrdinal("rule_description")));
+                            tRule.create_date = reader.GetDateTime(reader.GetOrdinal("rule_create_date"));
+                            tRule.modify_date = reader.GetDateTime(reader.GetOrdinal("rule_modify_date"));
+                            tRule.sla_version_id = reader.GetInt32(reader.GetOrdinal("sla_version_id"));
+                            tRule.service_level_target = (reader.IsDBNull(reader.GetOrdinal("service_level_target")) ? 0 : reader.GetDouble(reader.GetOrdinal("service_level_target")));
+                            tRule.sla_id = reader.GetInt32(reader.GetOrdinal("sla_id"));
+                            tRule.sla_name = reader.GetString(reader.GetOrdinal("sla_name"));
+                            tRule.version_number = reader.GetInt32(reader.GetOrdinal("version_number"));
+                            tRule.primary_contract_party_id = reader.GetInt32(reader.GetOrdinal("primary_contract_party_id"));
+                            tRule.primary_contract_party_name = reader.GetString(reader.GetOrdinal("primary_contract_party_name"));
+                            tRule.secondary_contract_party_id = (reader.IsDBNull(reader.GetOrdinal("secondary_contract_party_id")) ? 0 : reader.GetInt32(reader.GetOrdinal("secondary_contract_party_id")));
+                            tRule.secondary_contract_party_name = (reader.IsDBNull(reader.GetOrdinal("secondary_contract_party_name")) ? null : reader.GetString(reader.GetOrdinal("secondary_contract_party_name")));
+                            list.Add(tRule);
+                        }
+                    }
+                    return list;
+                }
             }
             catch (Exception e)
             {
@@ -803,28 +1500,82 @@ namespace Quantis.WorkFlow.APIBase.API
         }
         #region privateFunctions
 
+ /*       private List<int> GetRawIdsFromResource(List<EventResourceDTO> dto, string period)
+        {
+            try
+            {
+
+                using (var con = new NpgsqlConnection(_configuration.GetConnectionString("DataAccessPostgreSqlProvider")))
+                {
+                    con.Open();
+                    var output = new List<int>();
+                    var month = period.Split('/').FirstOrDefault();
+                    var year = "20" + period.Split('/').LastOrDefault();
+                    string completewhereStatement = "";
+                    var whereStatements = new List<string>();
+                    foreach (var d in dto)
+                    {
+                        if (d.ResourceId == -1)
+                        {
+                            whereStatements.Add(string.Format("(event_type_id={0})", d.EventId));
+                        }
+                        else
+                        {
+                            whereStatements.Add(string.Format("(resource_id={0} AND event_type_id={1})", d.ResourceId, d.EventId));
+                        }
+
+                    }
+                    if (dto.Any())
+                    {
+                        completewhereStatement = string.Format(" AND ({0})", string.Join(" OR ", whereStatements));
+                    }
+                    var sp = string.Format("Select event_type_id,resource_id,raw_data_id from t_dt_de_3_{0}_{1} where 1=1 {2}", year, month, completewhereStatement);
+                    var command = new NpgsqlCommand(sp, con);
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            output.Add(reader.GetInt32(reader.GetOrdinal("raw_data_id")));
+                        }
+
+                        return output;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+        }*/
+
         private bool CallFormAdapter(FormAdapterDTO dto)
         {
             using (var client = new HttpClient())
             {
                 var con = GetBSIServerURL();
-                client.BaseAddress = new Uri(con);
-                var response = client.PostAsJsonAsync("api/FormAdapter/RunAdapter", dto).Result;
+                var apiPath = "/api/FormAdapter/RunAdapter";
+                var output = QuantisUtilities.FixHttpURLForCall(con, apiPath);
+                client.BaseAddress = new Uri(output.Item1);
+                var dataAsString = JsonConvert.SerializeObject(dto);
+                var content = new StringContent(dataAsString);
+                content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+                var response =client.PostAsync(output.Item2, content).Result;
                 if (response.IsSuccessStatusCode)
                 {
-                    if (response.Content.ReadAsAsync<string>().Result == "2")
+                    var res = response.Content.ReadAsStringAsync().Result;
+                    if ( res== "2" || res=="1" || res=="3")
                     {
                         return true;
                     }
                     else
-                    {                        
-                        return false;
+                    {
+                        throw new Exception("The return from Form Adapter is not valid value is:" +res);
 
                     }
                 }
                 else
-                {                    
-                    return false;
+                {
+                    throw new Exception(string.Format("Call to form adapter has failed. BaseURL: {0} APIPath: {1} Data:{2}",output.Item1,output.Item2,dataAsString));
                 }
 
             }
@@ -911,6 +1662,29 @@ namespace Quantis.WorkFlow.APIBase.API
                 }
             }
         }
+        private IQueryable<T_CatalogUser> CreateGetUserQuery(UserFilterDTO filter)
+        {
+            var users = _dbcontext.CatalogUsers as IQueryable<T_CatalogUser>;
+            if (!string.IsNullOrEmpty(filter.SearchText))
+            {
+                users = users.Where(o => o.name.Contains(filter.SearchText) ||
+                o.surname.Contains(filter.SearchText)||
+                o.ca_bsi_account.Contains(filter.SearchText) ||
+                o.organization.Contains(filter.SearchText) ||
+                o.mail.Contains(filter.SearchText) ||
+                o.manager.Contains(filter.SearchText));
+            }
+            if (!string.IsNullOrEmpty(filter.Name))
+            {
+                users = users.Where(o => o.name.Contains(filter.Name));
+            }
+            if (!string.IsNullOrEmpty(filter.Surname))
+            {
+                users = users.Where(o => o.surname.Contains(filter.Surname));
+            }
+            return users;
+        }
+
         #endregion
     }
 }

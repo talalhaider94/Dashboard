@@ -6,6 +6,7 @@ using Quantis.WorkFlow.APIBase.Mappers;
 using Quantis.WorkFlow.APIBase.Mappers.Information;
 using Quantis.WorkFlow.Models;
 using Quantis.WorkFlow.Models.Information;
+using Quantis.WorkFlow.Models.SDM;
 using Quantis.WorkFlow.Services.API;
 using Quantis.WorkFlow.Services.DTOs.API;
 using Quantis.WorkFlow.Services.DTOs.Information;
@@ -41,10 +42,11 @@ namespace Quantis.WorkFlow.APIBase
             services.AddTransient<IMappingService<WidgetDTO, T_Widget>, WidgetMapper>();
             services.AddTransient<IMappingService<FormRuleDTO, T_FormRule>, FormRuleMapper>();
             services.AddTransient<IMappingService<FormAttachmentDTO, T_FormAttachment>, FormAttachmentMapper>();
-            services.AddTransient<IMappingService<CatalogKpiDTO, T_CatalogKPI>, CatalogKpiMapper>();
-            services.AddTransient<IMappingService<CatalogKPILVDTO, vw_CatalogKPI>, CatalogKPILVMapper>();
+            services.AddTransient<IMappingService<CatalogKpiDTO, T_CatalogKPI>, CatalogKpiMapper>();            
             services.AddTransient<IMappingService<ApiDetailsDTO, T_APIDetail>, ApiMapper>();
             services.AddTransient<IMappingService<ConfigurationDTO, T_Configuration>, ConfigurationMapper>();
+            services.AddTransient<IMappingService<SDMStatusDTO, SDM_TicketStatus>, SDMStatusMapper>();
+            services.AddTransient<IMappingService<SDMGroupDTO, SDM_TicketGroup>, SDMGroupMapper>();
         }
     }
 }

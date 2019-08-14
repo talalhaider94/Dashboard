@@ -13,6 +13,9 @@ namespace Quantis.WorkFlow.Services.DTOs.OracleAPI
         public Decimal provided_e { get; set; }
         public Decimal provided_ce { get; set; }
         public DateTime time_stamp_utc { get; set; }
-        
+        public string result { get; set; }
+        public Decimal target { get; set; }
+        public string relation { get; set; }
+        public string symbol { get; set; }
     }
 }

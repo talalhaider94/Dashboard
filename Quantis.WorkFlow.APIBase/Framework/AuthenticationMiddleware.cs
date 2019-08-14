@@ -20,9 +20,11 @@ namespace Quantis.WorkFlow.APIBase.Framework
         {
             _next = next;
         }
+        
 
         public async Task Invoke(HttpContext context, WorkFlowPostgreSqlContext _context, ILogger<AuthenticationMiddleware> _logger,IInformationService info, IMemoryCache memoryCache)
         {
+            
             if (_authentications == null)
             {
                 _authentications = _context.Authentication.Select(o => new Tuple<string, string>(o.Username, o.Password)).ToList();
@@ -34,16 +36,21 @@ namespace Quantis.WorkFlow.APIBase.Framework
                 Encoding encoding = Encoding.GetEncoding("iso-8859-1");
                 string mytoken = encoding.GetString(Convert.FromBase64String(token));
                 //string mytoken = token;
-                var token_entity=_context.Sessions.FirstOrDefault(o => o.session_token == token && (o.logout_time==null || o.logout_time > DateTime.Now) && o.expire_time > DateTime.Now);
+                var token_entity=_context.Sessions.FirstOrDefault(o => o.session_token == token && o.logout_time==null && o.expire_time > DateTime.Now);
                 if (token_entity != null)
                 {
                     var user_entity = _context.CatalogUsers.FirstOrDefault(o => o.ca_bsi_account == token_entity.user_name);
+                    
                     AuthUser usr = new AuthUser()
                     {
                         UserId = token_entity.user_id,
                         UserName = user_entity.ca_bsi_account,
-                        Permissions = (List<string>)memoryCache.Get("Permission_"+token_entity.user_id)
-                    };
+                        SessionToken=token_entity.session_token,
+                        Permissions = (List<string>)memoryCache.GetOrCreate("Permission_" + token_entity.user_id, f => {
+                            var permissions = info.GetPermissionsByUserId(token_entity.user_id).Select(o => o.Code).ToList();
+                            return permissions;
+                        })
+                };
                     token_entity.expire_time = DateTime.Now.AddMinutes(getSessionTimeOut(_context));
                     _context.SaveChanges();
                     context.User = usr;
@@ -83,6 +90,7 @@ namespace Quantis.WorkFlow.APIBase.Framework
                 return;
             }
         }
+
         private int getSessionTimeOut(WorkFlowPostgreSqlContext _context)
         {
             var session=_context.Configurations.FirstOrDefault(o => o.owner == "be_restserver" && o.key == "session_timeout");

@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Quantis.WorkFlow.Models;
 using Quantis.WorkFlow.Models.Information;
+using Quantis.WorkFlow.Models.SDM;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,6 +13,7 @@ namespace Quantis.WorkFlow.APIBase.Framework
     {
         public WorkFlowPostgreSqlContext(DbContextOptions<WorkFlowPostgreSqlContext> options) : base(options)
         {
+            Database.SetCommandTimeout(150000);
         }
 
         public DbSet<T_Group> Groups { get; set; }
@@ -25,7 +27,7 @@ namespace Quantis.WorkFlow.APIBase.Framework
         public DbSet<T_CatalogUser> CatalogUsers { get; set; }
         public DbSet<T_Session> Sessions { get; set; }
         public DbSet<T_CatalogKPI> CatalogKpi { get; set; }
-        public DbSet<vw_CatalogKPI> ViewCatalogKPI { get; set; }
+        public DbSet<T_GlobalRule> TGlobalRules { get; set; }
         public DbSet<T_APIDetail> ApiDetails { get; set; }
         public DbSet<T_FormAttachment> FormAttachments { get; set; }
         public DbSet<T_FormLog> FormLogs { get; set; }
@@ -33,9 +35,18 @@ namespace Quantis.WorkFlow.APIBase.Framework
 
         public DbSet<T_UserRole> UserRoles { get; set; }
         public DbSet<T_Role> Roles { get; set; }
+        public DbSet<T_Rule> Rules { get; set; }
         public DbSet<T_RolePermission> RolePermissions { get; set; }
         public DbSet<T_Permission> Permissions { get; set; }
-
+        public DbSet<T_User> TUsers { get; set; } 
+        public DbSet<SDM_TicketStatus> SDMTicketStatus { get; set; }
+        public DbSet<SDM_TicketGroup> SDMTicketGroup { get; set; }
+        public DbSet<SDM_TicketLog> SDMTicketLogs { get; set; }
+        public DbSet<SDM_TicketFact> SDMTicketFact { get; set; }
+        public DbSet<T_User_KPI> UserKPIs { get; set; }
+        public DbSet<T_Customer> Customers { get; set; }
+        public DbSet<T_EmailNotifiers> EmailNotifiers { get; set; }
+        public DbSet<T_Sla> Slas { get; set; }
         protected override void OnModelCreating(ModelBuilder builder)
         {
             
@@ -50,7 +61,6 @@ namespace Quantis.WorkFlow.APIBase.Framework
             builder.ApplyConfiguration(new T_CatalogUser_Configuration());
             builder.ApplyConfiguration(new T_Session_Configuration());
             builder.ApplyConfiguration(new T_CatalogKPI_Configuration());
-            builder.ApplyConfiguration(new vw_CatalogKPI_Configuration());
             builder.ApplyConfiguration(new T_APIDetail_Configuration());
             builder.ApplyConfiguration(new T_FormAttachment_Configuration());
             builder.ApplyConfiguration(new T_FormLog_Configuration());
@@ -59,6 +69,17 @@ namespace Quantis.WorkFlow.APIBase.Framework
             builder.ApplyConfiguration(new T_Role_Configuration());
             builder.ApplyConfiguration(new T_RolePermission_Configuration());
             builder.ApplyConfiguration(new T_Permission_Configuration());
+            builder.ApplyConfiguration(new T_Rule_Configuration());
+            builder.ApplyConfiguration(new T_User_Configuration());
+            builder.ApplyConfiguration(new SDM_TicketStatus_Configuration());
+            builder.ApplyConfiguration(new SDM_TicketGroup_Configuration());
+            builder.ApplyConfiguration(new T_User_KPI_Configuration());
+            builder.ApplyConfiguration(new T_Customer_Configuration());
+            builder.ApplyConfiguration(new T_EmailNotifiers_Configuration());
+            builder.ApplyConfiguration(new T_GlobalRule_Configuration());
+            builder.ApplyConfiguration(new T_Sla_Configuration());
+            builder.ApplyConfiguration(new SDM_TicketLog_Configuration());
+            builder.ApplyConfiguration(new SDM_TicketFact_Configuration());
             base.OnModelCreating(builder);
         }
 
@@ -77,7 +98,6 @@ namespace Quantis.WorkFlow.APIBase.Framework
             updateUpdatedProperty<T_CatalogUser>();
             updateUpdatedProperty<T_Session>();
             updateUpdatedProperty<T_CatalogKPI>();
-            updateUpdatedProperty<vw_CatalogKPI>();
             updateUpdatedProperty<T_APIDetail>();
             updateUpdatedProperty<T_FormAttachment>();
             updateUpdatedProperty<T_FormLog>();
@@ -86,6 +106,17 @@ namespace Quantis.WorkFlow.APIBase.Framework
             updateUpdatedProperty<T_Role>();
             updateUpdatedProperty<T_RolePermission>();
             updateUpdatedProperty<T_Permission>();
+            updateUpdatedProperty<T_Rule>();
+            updateUpdatedProperty<T_User>();
+            updateUpdatedProperty<SDM_TicketStatus>();
+            updateUpdatedProperty<SDM_TicketGroup>();
+            updateUpdatedProperty<T_User_KPI>();
+            updateUpdatedProperty<T_Customer>();
+            updateUpdatedProperty<T_EmailNotifiers>();
+            updateUpdatedProperty<T_GlobalRule>();
+            updateUpdatedProperty<T_Sla>();
+            updateUpdatedProperty<SDM_TicketLog>();
+            updateUpdatedProperty<SDM_TicketFact>();
             return base.SaveChanges();
         }
 

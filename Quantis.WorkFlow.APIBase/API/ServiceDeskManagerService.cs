@@ -13,18 +13,25 @@ using System.Net.Http;
 using System.Xml;
 using System.Net;
 using System.IO;
+using Newtonsoft.Json;
+using System.Net.Http.Headers;
+using Microsoft.AspNetCore.Http;
+using Quantis.WorkFlow.Services.Framework;
+using Quantis.WorkFlow.Models.SDM;
+using System.Globalization;
 
 namespace Quantis.WorkFlow.APIBase.API
 {
     public class ServiceDeskManagerService : IServiceDeskManagerService
     {
+        static readonly object _object = new object();
         private readonly SDM.USD_WebServiceSoapClient _sdmClient = null;
         private readonly SDMExt.USD_R11_ExtSoapClient _sdmExtClient = null;
         private int _sid {get;set; }
         private readonly string _username;
         private readonly string _password;
-        private readonly List<SDMGroupDTO> _groupMapping;
-        private readonly List<KeyValuePair<string,string>> _statusMapping;
+        private readonly List<SDM_TicketGroup> _groupMapping;
+        private readonly List<SDM_TicketStatus> _statusMapping;
         private readonly IDataService _dataService;
         private readonly WorkFlowPostgreSqlContext _dbcontext;
         private readonly IInformationService _infomationAPI;
@@ -71,23 +78,9 @@ namespace Quantis.WorkFlow.APIBase.API
         {
             _dbcontext = context;
             _infomationAPI = infomationAPI;
-            _groupMapping = new List<SDMGroupDTO>()
-            {
-                new SDMGroupDTO("cnt:D3D5EE53E8F26A46B1B8DF358EC30065","IMEL_Referenti_OP","IM"),
-                new SDMGroupDTO("cnt:36EBDF755A37104E9DCB0CFE6398EA91","IMEL_Referenti_SER_CERT","IM"),
-                new SDMGroupDTO("cnt:460E863B3E003042BB1C4E887CDACBB2","IMEL_Resp_Contratto","IM"),
-                new SDMGroupDTO("cnt:532AE6B2B61CA34496EE7BD6FBC7C620","BP_Resp_Contratto","BP"),
-                new SDMGroupDTO("cnt:D5D36A81F203AB4F8C078FA8ACA31C99","BP_Resp_Contratto","BP"),
-                new SDMGroupDTO("cnt:7FF46C26EA8DB6429C9C9E075975ECB5","BP_Resp_Contratto","BP"),
+            _groupMapping = _dbcontext.SDMTicketGroup.ToList();
+            _statusMapping = _dbcontext.SDMTicketStatus.OrderBy(o=>o.step).ToList();
 
-            };
-            _statusMapping = new List<KeyValuePair<string, string>>() {
-                new KeyValuePair<string, string>("crs:134676940","BSIVROP"),
-                new KeyValuePair<string, string>("crs:134676941","BSIVRSER"),
-                new KeyValuePair<string, string>("crs:134676942","BSIVRECONT"),
-                new KeyValuePair<string, string>("CLCERT","CLCERT"),
-
-            };
             if (_sdmClient == null)
             {
                 _sdmClient = new SDM.USD_WebServiceSoapClient();
@@ -117,7 +110,7 @@ namespace Quantis.WorkFlow.APIBase.API
             LogIn();
             try
             {                
-                var select_a = _sdmClient.doSelectAsync(_sid, "cr", "", 99999, new string[] { "ref_num", "description", "group", "summary", "status", "zz_mgnote", "zz_cned_string1", "zz_cned_string2", "zz_cned_string3", "zz_cned_string4" });
+                var select_a = _sdmClient.doSelectAsync(_sid, "cr", "", 99999, new string[] { "ref_num", "description", "group", "summary", "status", "zz_mgnote", "zz_cned_string1", "zz_cned_string2", "zz_cned_string3", "zz_cned_string4", "zz_string1", "zz_string2", "zz_string3", "last_mod_dt" });
                 select_a.Wait();
                 var select_result = select_a.Result.doSelectReturn;
                 ret= parseTickets(select_result);
@@ -138,7 +131,7 @@ namespace Quantis.WorkFlow.APIBase.API
             LogIn();
             try
             {
-                var selecta = _sdmClient.doSelectAsync(_sid, "lrel_attachments_requests", "cr='cr:" + ticketId + "'", 99999, new string[0]);
+                var selecta = _sdmClient.doSelectAsync(_sid, "lrel_attachments_requests", "cr='cr:" + ticketId + "'", 99999, new string[] { "attmnt", "attmnt.attmnt_name", "last_mod_dt" });
                 selecta.Wait();
                 var sel = selecta.Result.doSelectReturn;
                 ret = parseAttachments(sel);
@@ -151,7 +144,7 @@ namespace Quantis.WorkFlow.APIBase.API
             {
                 LogOut();
             }
-            return ret;
+            return ret.OrderByDescending(o=>o.LastModifiedDate).ToList();
         }
         public byte[] DownloadAttachment(string attachmentHandle)
         {
@@ -159,7 +152,7 @@ namespace Quantis.WorkFlow.APIBase.API
             LogIn();
             try
             {
-                var select_a = _sdmExtClient.downloadAttachmentAsync(_sid, attachmentHandle);
+                var select_a = _sdmExtClient.downloadAttachmentAsync(_sid, "attmnt:"+attachmentHandle);
 
                 select_a.Wait();
                 var select_result = select_a.Result.Body.downloadAttachmentResult;
@@ -175,12 +168,12 @@ namespace Quantis.WorkFlow.APIBase.API
             }
             return ret;
         }
-        public SDMTicketLVDTO GetTicketByKPIID(int Id)
+        public SDMTicketLVDTO GetTicketByID(int Id)
         {
             LogIn();
             try
             {
-                var select_a = _sdmClient.doSelectAsync(_sid, "cr", "zz_mgnote='" + Id+"'", 1, new string[] { "ref_num", "description", "group", "summary", "status", "zz_mgnote", "zz_cned_string1", "zz_cned_string2", "zz_cned_string3", "zz_cned_string4" });
+                var select_a = _sdmClient.doSelectAsync(_sid, "cr", "id=" + Id+"", 1, new string[] { "ref_num", "description", "group", "summary", "status", "zz_mgnote", "zz_cned_string1", "zz_cned_string2", "zz_cned_string3", "zz_cned_string4","zz_string1","zz_string2","zz_string3", "zz_string1", "zz_string2", "zz_string3", "last_mod_dt" });
                 select_a.Wait();
                 var select_result = select_a.Result.doSelectReturn;
                 return parseTickets(select_result).FirstOrDefault();
@@ -202,9 +195,9 @@ namespace Quantis.WorkFlow.APIBase.API
             {
                 if (string.IsNullOrEmpty(dto.Status))
                 {
-                    dto.Status = _statusMapping[1].Key;
+                    dto.Status = _statusMapping.FirstOrDefault().handle;
                 }
-                dto.Group = _groupMapping.Where(o=>o.GroupCatagory==dto.Group).First().GroupHandler;
+                dto.Group = _groupMapping.Where(o=>o.category_id==dto.GroupCategoryId).OrderBy(o=>o.step).First().handle;
                 string newRequestHandle = "";
                 string newRequestNumber = "";
                 var ticket=_sdmClient.createRequestAsync(new SDM.createRequestRequest(_sid, "",
@@ -245,7 +238,7 @@ namespace Quantis.WorkFlow.APIBase.API
                       dto.Period,
                     }, new string[0], "", new string[0], newRequestHandle, newRequestNumber)).Result.createRequestReturn;
 
-                ret= parseTickets(ticket).FirstOrDefault();
+                ret= parseNewTicket(ticket);
             }
             catch (Exception e)
             {
@@ -267,13 +260,13 @@ namespace Quantis.WorkFlow.APIBase.API
                 var dto = _dataService.GetKPICredentialToCreateTicket(Id);
                 if (string.IsNullOrEmpty(dto.Status))
                 {
-                    dto.Status = _statusMapping[1].Key;
+                    dto.Status = _statusMapping.FirstOrDefault().handle;
                 }
-                dto.Group = _groupMapping.Where(o => o.GroupCatagory == dto.Group).First().GroupHandler;
+                dto.Group = _groupMapping.Where(o => o.category_id == dto.GroupCategoryId).OrderBy(o => o.step).First().handle;
                 string newRequestHandle = "";
                 string newRequestNumber = "";
                 var ticket = _sdmClient.createRequestAsync(new SDM.createRequestRequest(_sid, "",
-                    new string[38]
+                    new string[40]
                     {"type",
                       "crt:180",
                       "customer",
@@ -308,13 +301,35 @@ namespace Quantis.WorkFlow.APIBase.API
                       dto.Reference3,
                       "zz_cned_string4",
                       dto.Period,
-                      "zz_primary_contract_party",
-                      dto.primary_contract_party+"",
-                      "zz_secondary_contract_party",
-                      dto.secondary_contract_party+""
+                      "zz_string1",
+                      dto.zz1_contractParties,
+                      "zz_string2",
+                      dto.zz2_calcValue,
+                      "zz_string3",
+                      dto.zz3_KpiIds
                     }, new string[0], "", new string[0], newRequestHandle, newRequestNumber)).Result.createRequestReturn;
 
-                ret= parseTickets(ticket).FirstOrDefault();
+                ret = parseNewTicket(ticket);
+                var sdm_fact = new SDM_TicketFact()
+                {
+                    complaint = (dto.Description.IndexOf("[Complaint]") != -1),
+                    created_on = DateTime.Now,
+                    global_rule_id = int.Parse(dto.zz3_KpiIds.Split('|')[1]),
+                    notcalculated = (dto.Description.IndexOf("[Non Calcolato]") != -1),
+                    notcomplaint = (dto.Description.IndexOf("[Non Complaint]") != -1),
+                    period_month = DateTime.Now.AddMonths(-1).Month,
+                    period_year = DateTime.Now.AddMonths(-1).Year,
+                    primary_contract_party_id = dto.GroupCategoryId,
+                    refused = false,
+                    result_value = dto.zz2_calcValue,
+                    secondary_contract_party_id = dto.SecondaryContractParty,
+                    ticket_id = int.Parse(ret.Id),
+                    ticket_refnum = int.Parse(ret.ref_num),
+                    customer_id = _infomationAPI.GetContractIdByGlobalRuleId(int.Parse(dto.zz3_KpiIds.Split('|')[1]))
+
+                };
+                _dbcontext.SDMTicketFact.Add(sdm_fact);
+                _dbcontext.SaveChanges();
                 var attachments = _dataService.GetAttachmentsByKPIID(Id);
                 foreach(var att in attachments)
                 {
@@ -326,6 +341,8 @@ namespace Quantis.WorkFlow.APIBase.API
                     param.Add("fileName", att.doc_name);
                     SendSOAPRequest(_sdmClient.InnerChannel.RemoteAddress.ToString(), "createAttachment", param, att.content);
                 }
+                _dbcontext.SaveChanges();
+
             }
             catch (Exception e)
             {
@@ -337,61 +354,80 @@ namespace Quantis.WorkFlow.APIBase.API
             }
             return ret;
         }
-        public string UploadAttachmentToTicket(int ticketId,string docName,byte[] docContent)
+        public string UploadAttachmentToTicket(SDMUploadAttachmentDTO dto)
         {
             string ret = null;
             LogIn();
-            try
-            {
-                Dictionary<string, string> param = new Dictionary<string, string>();
-                param.Add("sid", _sid + "");
-                param.Add("repositoryHandle", "doc_rep:1002");
-                param.Add("objectHandle", "cr:" + ticketId);
-                param.Add("description", docName);
-                param.Add("fileName", docName);
-                SendSOAPRequest(_sdmClient.InnerChannel.RemoteAddress.ToString(), "createAttachment", param, docContent);
-            }
-            catch (Exception e)
-            {
-                throw e;
-            }
-            finally
-            {
-                LogOut();
-            }
+            Dictionary<string, string> param = new Dictionary<string, string>();
+            param.Add("sid", _sid + "");
+            param.Add("repositoryHandle", "doc_rep:1002");
+            param.Add("objectHandle", "cr:" + dto.TicketId);
+            param.Add("description", dto.AttachmentName);
+            param.Add("fileName", dto.AttachmentName);           
+            SendSOAPRequest(_sdmClient.InnerChannel.RemoteAddress.ToString(), "createAttachment", param, dto.AttachmentContent);
+            LogOut();
             return ret;
         }
-        public List<SDMTicketLVDTO> GetTicketDescrptionByUser(string username)
+        public List<SDMTicketLVDTO> GetTicketsVerificationByUser(HttpContext context,string period)
         {
             List<SDMTicketLVDTO> ret = null;
             LogIn();
             try
             {
-                var userid = _dataService.GetUserIdByUserName(username);
+                var user=context.User as AuthUser;
+                if (user == null)
+                {
+                    throw new Exception("No user Login to Get Tickets by user");
+                }
+                var userid = _dataService.GetUserIdByUserName(user.UserName);
                 if (userid != null)
                 {
                     List<SDMTicketLVDTO> tickets = new List<SDMTicketLVDTO>();
                     userid = userid.Split('\\')[1];
-                    var select_al = _sdmClient.doSelectAsync(_sid, "cr","", 99999, new string[] { "ref_num", "description", "group", "summary", "status", "zz_mgnote", "zz_cned_string1", "zz_cned_string2", "zz_cned_string3", "zz_cned_string4" });
-                    select_al.Wait();
-                    var select_resultl = select_al.Result.doSelectReturn;
 
-
-                    var select_a = _sdmClient.doSelectAsync(_sid, "cr", "status='"+ _statusMapping[0].Value+ "' and zz_cned_string1='"+ userid + "'", 99999, new string[] { "ref_num", "description", "group", "summary", "status", "zz_mgnote", "zz_cned_string1", "zz_cned_string2", "zz_cned_string3", "zz_cned_string4" });
+                    var select_a = _sdmClient.doSelectAsync(_sid, "cr", "status='"+ _statusMapping.ElementAt(0).code+ "' and zz_cned_string1 LIKE '%"+ userid + "%' and zz_cned_string4='"+ period + "'", 99999, new string[] { "ref_num", "description", "group", "summary", "status", "zz_mgnote", "zz_cned_string1", "zz_cned_string2", "zz_cned_string3", "zz_cned_string4", "zz_string1", "zz_string2", "zz_string3", "last_mod_dt" });
                     select_a.Wait();
                     var select_result = select_a.Result.doSelectReturn;
                     tickets.AddRange(parseTickets(select_result));
 
-                    select_a = _sdmClient.doSelectAsync(_sid, "cr", "status='" + _statusMapping[1].Value + "' and zz_cned_string2='" + userid + "'", 99999, new string[] { "ref_num", "description", "group", "summary", "status", "zz_mgnote", "zz_cned_string1", "zz_cned_string2", "zz_cned_string3", "zz_cned_string4" });
+                    select_a = _sdmClient.doSelectAsync(_sid, "cr", "status='" + _statusMapping.ElementAt(1).code + "' and zz_cned_string2 LIKE '%" + userid + "%' and zz_cned_string4='" + period + "'", 99999, new string[] { "ref_num", "description", "group", "summary", "status", "zz_mgnote", "zz_cned_string1", "zz_cned_string2", "zz_cned_string3", "zz_cned_string4", "zz_string1", "zz_string2", "zz_string3", "last_mod_dt" });
                     select_a.Wait();
                     select_result = select_a.Result.doSelectReturn;
                     tickets.AddRange(parseTickets(select_result));
 
-                    select_a = _sdmClient.doSelectAsync(_sid, "cr", "status='" + _statusMapping[2].Value + "' and zz_cned_string3='" + userid + "'", 99999, new string[] { "ref_num", "description", "group", "summary", "status", "zz_mgnote", "zz_cned_string1", "zz_cned_string2", "zz_cned_string3", "zz_cned_string4" });
+                    select_a = _sdmClient.doSelectAsync(_sid, "cr", "status='" + _statusMapping.ElementAt(2).code + "' and zz_cned_string3 LIKE '%" + userid + "%' and zz_cned_string4='" + period + "'", 99999, new string[] { "ref_num", "description", "group", "summary", "status", "zz_mgnote", "zz_cned_string1", "zz_cned_string2", "zz_cned_string3", "zz_cned_string4", "zz_string1", "zz_string2", "zz_string3", "last_mod_dt" });
                     select_a.Wait();
                     select_result = select_a.Result.doSelectReturn;
                     tickets.AddRange(parseTickets(select_result));
-                    ret= tickets;
+                    ret = tickets.ToList();
+                    var ids = ret.Select(o => o.kpiIdPK).ToList();
+                    var titolos = _dataService.GetKPITitolo(ids);
+                    return (from tks in ret
+                            join tito in titolos on tks.kpiIdPK equals tito.Key
+                            into gj
+                            from subset in gj.DefaultIfEmpty()
+                            select new SDMTicketLVDTO()
+                            {
+                                Id = tks.Id,
+                                ref_num = tks.ref_num,
+                                Summary = tks.Summary,
+                                Description = tks.Description,
+                                Status = tks.Status,
+                                Group = tks.Group,
+                                ID_KPI = tks.ID_KPI,
+                                Reference1 = tks.Reference1,
+                                Reference2 = tks.Reference2,
+                                Reference3 = tks.Reference3,
+                                Period = tks.Period,
+                                primary_contract_party = tks.primary_contract_party,
+                                secondary_contract_party = tks.secondary_contract_party,
+                                IsClosed = tks.IsClosed,
+                                calcValue = tks.calcValue,
+                                KpiIds = tks.KpiIds,
+                                LastModifiedDate = tks.LastModifiedDate,
+                                Titolo = subset.Value ?? string.Empty
+                            }).ToList();
+
                 }
             }
             catch(Exception e)
@@ -405,55 +441,174 @@ namespace Quantis.WorkFlow.APIBase.API
             return ret;
 
         }
-        public SDMTicketLVDTO TransferTicketByKPIID(int id, string status,string description)
+
+        public List<SDMTicketLVDTO> GetTicketsRicercaByUser(HttpContext context,string period)
         {
-            var ticket = GetTicketByKPIID(id);
+            List<SDMTicketLVDTO> ret = null;
+            
+            try
+            {
+                var user = context.User as AuthUser;
+                if (user == null)
+                {
+                    throw new Exception("No user Login to Get Tickets by user");
+                }
+                var userid = _dataService.GetUserIdByUserName(user.UserName);
+                if (userid != null)
+                {
+                    List<SDMTicketLVDTO> tickets = new List<SDMTicketLVDTO>();
+                    userid = userid.Split('\\')[1];
+                    var kpiDetials=_infomationAPI.GetContractPartyByUser(user.UserId);
+                    var kpiIds = kpiDetials.Select(o => o.Item1).ToList();
+                    var contractparties = kpiDetials.Select(o => o.Item2).Distinct();
+                    string filterstring = "";
+                    var groups=_dbcontext.SDMTicketGroup.Where(o => contractparties.Contains(o.category_id)).Select(p=>p.handle.Substring(4)).ToList();
+                    if (!groups.Any())
+                    {
+                        return tickets;
+                    }
+                    var filters = groups.Select(o => string.Format(" group.id=U'{0}' ", o));
+                    filterstring=string.Join("OR", filters);
+                    if (!string.IsNullOrEmpty(period) && period != "all/all")
+                    {
+                        if (period.IndexOf("all/") != -1)
+                        {
+                            filterstring = string.Format("({0}) AND zz_cned_string4 LIKE '%/{1}'", filterstring, period.Split('/').LastOrDefault());
+                        }
+                        else if (period.IndexOf("/all") != -1)
+                        {
+                            filterstring = string.Format("({0}) AND zz_cned_string4 LIKE '{1}/%'", filterstring, period.Split('/').FirstOrDefault());
+                        }
+                        else
+                        {
+                            filterstring = string.Format("({0}) AND zz_cned_string4='{1}'", filterstring, period);
+                        }
+                        
+                    }
+                    LogIn();
+                    var select_a = _sdmClient.doSelectAsync(_sid, "cr", filterstring, 99999, new string[] { "ref_num", "description", "group", "summary", "status", "zz_mgnote", "zz_cned_string1", "zz_cned_string2", "zz_cned_string3", "zz_cned_string4", "zz_string1", "zz_string2", "zz_string3", "last_mod_dt" });
+                    select_a.Wait();
+                    var select_result = select_a.Result.doSelectReturn;
+                    var tckts= parseTickets(select_result).Where(o=> kpiIds.Contains(o.kpiIdPK)).ToList();
+                    var ids = tckts.Select(o => o.kpiIdPK).ToList();
+                    var titolos=_dataService.GetKPITitolo(ids);
+                    return (from tks in tckts
+                            join tito in titolos on tks.kpiIdPK equals tito.Key
+                            into gj
+                            from subset in gj.DefaultIfEmpty()
+                            select new SDMTicketLVDTO()
+                            {
+                                Id = tks.Id,
+                                ref_num = tks.ref_num,
+                                Summary = tks.Summary,
+                                Description = tks.Description,
+                                Status = tks.Status,
+                                Group = tks.Group,
+                                ID_KPI = tks.ID_KPI,
+                                Reference1 = tks.Reference1,
+                                Reference2 = tks.Reference2,
+                                Reference3 = tks.Reference3,
+                                Period = tks.Period,
+                                primary_contract_party = tks.primary_contract_party,
+                                secondary_contract_party = tks.secondary_contract_party,
+                                IsClosed = tks.IsClosed,
+                                calcValue = tks.calcValue,
+                                KpiIds = tks.KpiIds,
+                                LastModifiedDate = tks.LastModifiedDate,
+                                Titolo = subset.Value ?? string.Empty
+                            }).ToList();
+
+
+                }
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+            finally
+            {
+                LogOut();
+            }
+            return ret;
+
+        }
+        public ChangeStatusDTO TransferTicketByID(int id, string status,string description, HttpContext context)
+        {
+            var user = context.User as AuthUser;
+            if (user == null)
+            {
+                throw new Exception("No user Login to Get Tickets by user");
+            }
+            var userid = _dataService.GetUserIdByUserName(user.UserName);
+            var dto = new ChangeStatusDTO();
+            var ticket = GetTicketByID(id);
             if (ticket.Status != status)
             {
-                return ticket;
+                _dbcontext.LogInformation("Status is equation to previous Status");
+                return dto;
             }
             LogIn();
             try
             {
-                if (ticket.Status == _statusMapping.First().Value || ticket.Status == _statusMapping.Last().Value || !_statusMapping.Any(o => o.Value == ticket.Status))
+                if (ticket.Status == _statusMapping.OrderBy(o => o.step).First().name || ticket.Status == _statusMapping.OrderBy(o => o.step).Last().name || !_statusMapping.Any(o => o.name == ticket.Status))
                 {
-                    return null;
+                    _dbcontext.LogInformation("Ticket Status not in configuration");
+                    return dto;
                 }
-                int index = _statusMapping.Select(o => o.Value).ToList().IndexOf(ticket.Status);
-                index--;
-                var newstatus = _statusMapping[index].Key;
+                int step = _statusMapping.FirstOrDefault(o => o.name == ticket.Status).step;
+                step--;
+                var newstatus = _statusMapping.FirstOrDefault(o => o.step == step).handle;
                 string newgroup = "";
-                foreach (var g in _groupMapping.GroupBy(o => o.GroupCatagory))
+                var newgroupEnt=_groupMapping.FirstOrDefault(o => o.step == step && o.category_id == int.Parse(ticket.primary_contract_party));
+                if (newgroupEnt != null)
                 {
-                    if (g.Any(o => o.GroupName == ticket.Group))
-                    {
-                        newgroup = g.ElementAt(index).GroupHandler;
-                    }
+                    newgroup = newgroupEnt.handle;
                 }
-                var kpi = _dataService.GetKpiById(id);
+                else
+                {
+                    throw new Exception("No group configuration in settings: Name: " + ticket.Group + " and category id: " + ticket.primary_contract_party);
+                }
+                string primarycp = string.IsNullOrEmpty(ticket.primary_contract_party) ? "" : _dbcontext.Customers.Single(o => o.customer_id == int.Parse(ticket.primary_contract_party)).customer_name;
+                string secondarycp = string.IsNullOrEmpty(ticket.secondary_contract_party) ? "" : _dbcontext.Customers.Single(o => o.customer_id == int.Parse(ticket.secondary_contract_party)).customer_name;
                 var bsiticketdto = new BSIKPIUploadDTO()
                 {
-                    kpi_name = kpi.id_kpi,
-                    contract_name = kpi.contract,
+                    kpi_name = ticket.Summary.Split('|')[1],
+                    contract_name = ticket.Summary.Split('|')[2],
                     id_ticket = ticket.ref_num,
                     period = ticket.Period,
-                    primary_contract_party = kpi.primary_contract_party,
-                    secondary_contract_party = kpi.secondary_contract_party,
-                    ticket_status = status
-                };
-                if (!CallUploadKPI(bsiticketdto))
-                {
-                    LogOut();
-                    return null;
-                }
-                string tickethandle = "cr:" + ticket.ref_num;
-                var esca = _sdmClient.transferAsync(_sid, "", tickethandle, description, false, "", true, newgroup, false, "");
+                    primary_contract_party = primarycp,
+                    secondary_contract_party = secondarycp,
+                    ticket_status = _statusMapping.FirstOrDefault(o => o.step == step).name
+                };               
+                string tickethandle = "cr:" + id;
+                var esca = _sdmClient.updateObjectAsync(_sid, tickethandle, new string[2] { "group", newgroup }, new string[0]);
                 esca.Wait();
+
+                description = string.Format("Rifiutato da {0} Nota inserita dall'utente {1}", userid = userid.Split('\\')[1], description);
 
                 var statusa = _sdmClient.changeStatusAsync(_sid, "", tickethandle, description, newstatus);
                 statusa.Wait();
                 LogOut();
-                return GetTicketByKPIID(id);
+                dto.IsSDMStatusChanged = true;
+                if (CallUploadKPI(bsiticketdto))
+                {
+                    dto.IsBSIStatusChanged = true;
+                }
+                if (_dbcontext.SDMTicketFact.Any(o => o.ticket_id == id))
+                {
+                    var fact = _dbcontext.SDMTicketFact.Single(o => o.ticket_id == id);
+                    var log = new SDM_TicketLog()
+                    {
+                        created_on = DateTime.Now,
+                        log_type = "D",
+                        note = description,
+                        TicketFact = fact,
+                        ticket_fact_id = fact.id
+                    };
+                    _dbcontext.SDMTicketLogs.Add(log);
+                    _dbcontext.SaveChanges();
+                }
+                return dto;
             }
             catch (Exception e)
             {
@@ -464,55 +619,160 @@ namespace Quantis.WorkFlow.APIBase.API
                 LogOut();
             }
         }
-        public SDMTicketLVDTO EscalateTicketbyKPIID(int id, string status,string description)
+
+        public void UpdateTicketValue(HttpContext context,TicketValueDTO dto)
         {
-            var ticket = GetTicketByKPIID(id);
+            
+            try
+            {
+                var user = context.User as AuthUser;
+                if (user == null)
+                {
+                    throw new Exception("No user Login to Get Tickets by user");
+                }
+                var userid = _dataService.GetUserIdByUserName(user.UserName);
+                var desc=GetTicketByID(dto.TicketId).Description;
+                if (desc.IndexOf("VALORE: [Non Calcolato]") == -1)
+                {
+                    throw new Exception("Description format saved in ticket is not correct");
+                }
+                var newstring = string.Format("VALORE: {0} {1} {2}", dto.Value, dto.Sign, dto.Type == 1 ? "[Compliant]" : "[Non Compliant]");
+                var newdesc = desc.Replace("VALORE: [Non Calcolato]", newstring).ToString();
+
+                var tickethandle = "cr:" + dto.TicketId;
+                LogIn();
+                var changeojb=_sdmClient.updateObjectAsync(_sid, tickethandle, new string[2] { "description", newdesc }, new string[0]);
+                changeojb.Wait();
+                var note = string.Format("Aggiornato il valore del ticket da parte dell’utente: {0}  Questa è la nota inserita: {1}", userid.Split('\\')[1], dto.Note);
+                _sdmClient.createActivityLogAsync(_sid, "", "cr:" + dto.TicketId, note, "LOG", 0, false).Wait();
+            }
+            catch(Exception e)
+            {
+                throw e;
+            }
+            finally
+            {
+                LogOut();
+            }
+        }
+        public ChangeStatusDTO EscalateTicketbyID(int id, string status,string description, HttpContext context)
+        {
+            var user = context.User as AuthUser;
+            if (user == null)
+            {
+                throw new Exception("No user Login to Get Tickets by user");
+            }
+            var userid = _dataService.GetUserIdByUserName(user.UserName);
+
+            var dto = new ChangeStatusDTO();
+            var ticket = GetTicketByID(id);
             if (ticket.Status != status)
             {
-                return ticket;
+                _dbcontext.LogInformation("Status is equation to previous Status");
+                return dto;
             }
             LogIn();
             try
             {
-                if (ticket.Status == _statusMapping.Last().Value || !_statusMapping.Any(o=>o.Value== ticket.Status))
+                if (ticket.Status == _statusMapping.OrderBy(o=>o.step).Last().name || !_statusMapping.Any(o=>o.name== ticket.Status))
                 {
-                    return null;
+                    _dbcontext.LogInformation("Ticket Status not in configuration");
+                    return dto;
                 }
-                int index = _statusMapping.Select(o => o.Value).ToList().IndexOf(ticket.Status);
-                index++;
-                var newstatus= _statusMapping[index].Key;
+                int step = _statusMapping.FirstOrDefault(o => o.name == ticket.Status).step;
+                step++;
+                var newstatus= _statusMapping.FirstOrDefault(o=>o.step== step).handle;
                 string newgroup = "";
-                foreach(var g in _groupMapping.GroupBy(o=>o.GroupCatagory))
+                var newgroupEnt = _groupMapping.FirstOrDefault(o => o.step == step && o.category_id == int.Parse(ticket.primary_contract_party));
+                if (newgroupEnt != null)
                 {
-                    if (g.Any(o => o.GroupName == ticket.Group))
-                    {
-                        newgroup = g.ElementAt(index).GroupHandler;
-                    }
+                    newgroup = newgroupEnt.handle;
                 }
-                var kpi = _dataService.GetKpiById(id);
+                else
+                {
+                    throw new Exception("No group configuration in settings: Name: " + ticket.Group + " and category id: " + ticket.primary_contract_party);
+                }
+                string primarycp = string.IsNullOrEmpty(ticket.primary_contract_party) ? "" : _dbcontext.Customers.Single(o => o.customer_id == int.Parse(ticket.primary_contract_party)).customer_name;
+                string secondarycp = string.IsNullOrEmpty(ticket.secondary_contract_party) ? "" : _dbcontext.Customers.Single(o => o.customer_id == int.Parse(ticket.secondary_contract_party)).customer_name;
                 var bsiticketdto = new BSIKPIUploadDTO()
                 {
-                    kpi_name = kpi.id_kpi,
-                    contract_name = kpi.contract,
+                    kpi_name = ticket.Summary.Split('|')[1],
+                    contract_name = ticket.Summary.Split('|')[2],
                     id_ticket = ticket.ref_num,
                     period = ticket.Period,
-                    primary_contract_party = kpi.primary_contract_party,
-                    secondary_contract_party = kpi.secondary_contract_party,
-                    ticket_status = status
+                    primary_contract_party = primarycp,
+                    secondary_contract_party = secondarycp,
+                    ticket_status = _statusMapping.FirstOrDefault(o => o.step == step).name
                 };
-                if (!CallUploadKPI(bsiticketdto))
-                {
-                    LogOut();
-                    return null;
-                }
-                string tickethandle = "cr:" + ticket.ref_num;
-                var esca=_sdmClient.escalateAsync(_sid, "", tickethandle, description, false, "", true, newgroup, false, "", false, "");
+                
+                string tickethandle = "cr:" + id;
+                var esca = _sdmClient.updateObjectAsync(_sid, tickethandle, new string[2] { "group", newgroup }, new string[0]);
                 esca.Wait();
+
+                description = string.Format("Approvato da {0} Nota inserita dall'utente: {1}", userid = userid.Split('\\')[1], description);
 
                 var statusa= _sdmClient.changeStatusAsync(_sid, "", tickethandle, description, newstatus);
                 statusa.Wait();
                 LogOut();
-                return GetTicketByKPIID(id);
+                dto.IsSDMStatusChanged = true;
+                if (CallUploadKPI(bsiticketdto))
+                {
+                    dto.IsBSIStatusChanged = true;
+                }
+                if (step == _statusMapping.Max(o => o.step))
+                {
+                    dto.ShowArchivedMsg = true;
+                    try
+                    {
+                        if (ticket.Summary.Split('|').Length <= 4)
+                        {
+                            var kpiid = int.Parse(ticket.KpiIds.Split('|').Last());
+                            var kpi = _dbcontext.CatalogKpi.FirstOrDefault(o => o.global_rule_id_bsi == kpiid);
+                            ARulesDTO ardto = new ARulesDTO()
+                            {
+                                contract_name = kpi.contract,
+                                customer_name = _dbcontext.Customers.Single(o => o.customer_id == kpi.primary_contract_party).customer_name,
+                                global_rule_id = kpi.global_rule_id_bsi,
+                                archived = true,
+                                id_kpi = kpi.id_kpi,
+                                interval_kpi = new DateTime(2000 + int.Parse(ticket.Period.Split('/').Last()), int.Parse(ticket.Period.Split('/').First()), 1),
+                                tracking_period = kpi.tracking_period,
+                                name_kpi = kpi.short_name,
+                                kpi_name_bsi = kpi.kpi_name_bsi,
+                                rule_id_bsi = kpi.global_rule_id_bsi,
+                                close_timestamp_ticket = DateTime.Now,
+                                ticket_id = int.Parse(ticket.ref_num),
+                                value_kpi = (ticket.calcValue == "[Non Calcolato]") ? "[Non Calcolato]" : ticket.calcValue.Split(' ').FirstOrDefault().Trim(),
+                                symbol = (ticket.calcValue == "[Non Calcolato]") ? "N/A" : ticket.calcValue.Split(' ').ElementAt(1).Trim(),
+                            };
+                            _dataService.AddArchiveKPI(ardto);
+                            _dataService.AddArchiveRawData(kpi.global_rule_id_bsi, ticket.Period, kpi.tracking_period);
+
+                            dto.IsArchived = true;
+                        }
+                    }
+                    catch(Exception e)
+                    {
+                        _dbcontext.LogInformation("Error: " + e.Message);
+                    }
+
+                }
+                if (_dbcontext.SDMTicketFact.Any(o => o.ticket_id == id))
+                {
+                    var fact = _dbcontext.SDMTicketFact.Single(o => o.ticket_id == id);
+                    var log = new SDM_TicketLog()
+                    {
+                        created_on = DateTime.Now,
+                        log_type = "A",
+                        note = description,
+                        TicketFact = fact,
+                        ticket_fact_id = fact.id
+                    };
+                    _dbcontext.SDMTicketLogs.Add(log);
+                    _dbcontext.SaveChanges();
+                }
+                return dto;
+
             }
             catch (Exception e)
             {
@@ -533,7 +793,7 @@ namespace Quantis.WorkFlow.APIBase.API
                 var selecta = _sdmClient.doSelectAsync(_sid, "alg", "call_req_id='cr:"+ ticketId + "'", 99999, new string[0]);
                 selecta.Wait();
                 var sel = selecta.Result.doSelectReturn;
-                ret = parseLogs(sel);
+                ret = parseLogs(sel).OrderByDescending(o=>int.Parse(o.TimeStamp)).ToList();
             }
             catch (Exception e)
             {
@@ -551,24 +811,31 @@ namespace Quantis.WorkFlow.APIBase.API
             {
                 using (var client = new HttpClient())
                 {
-                    List<string> data = new List<string>() { dto.primary_contract_party+"", dto.secondary_contract_party+"", dto.contract_name, dto.kpi_name, dto.id_ticket, dto.period, dto.ticket_status };
-                    client.BaseAddress = new Uri(_dataService.GetBSIServerURL());
-                    var response = client.PostAsJsonAsync("api/UploadKPI/UploadKPI", data).Result;
+                    UploadKPIDTO data = new UploadKPIDTO() { arguments = new List<string>() { dto.primary_contract_party + "", dto.secondary_contract_party + "", dto.contract_name, dto.kpi_name, dto.id_ticket, dto.period, dto.ticket_status } };
+                    var output = QuantisUtilities.FixHttpURLForCall(_dataService.GetBSIServerURL(), "/api/UploadKPI/UploadKPI");
+                    client.BaseAddress = new Uri(output.Item1);
+                    var dataAsString = JsonConvert.SerializeObject(data);
+                    _dbcontext.LogInformation("Parameters for Upload KPI: " + dataAsString);
+                    var content = new StringContent(dataAsString);
+                    content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+                    var response = client.PostAsync(output.Item2, content).Result;
                     if (response.IsSuccessStatusCode)
                     {
-                        if (response.Content.ReadAsAsync<bool>().Result)
+                        string res = response.Content.ReadAsStringAsync().Result;
+                        if (res == "\"TRUE\"")
                         {
                             return true;
                         }
                         else
                         {
-                            throw new Exception("Form Adapter returned with :" + response.ToString());
-
+                            _dbcontext.LogInformation("Message from Upload KPI: " + res);
+                            return false;
                         }
                     }
                     else
                     {
-                        throw new Exception("Connection to form adaptor cannot be created");
+                        _dbcontext.LogInformation(string.Format("Call to Upload KPI has failed. BaseURL: {0} APIPath: {1} Data:{2}", output.Item1, output.Item2, dataAsString));
+                        return false;
                     }
 
                 }
@@ -579,6 +846,33 @@ namespace Quantis.WorkFlow.APIBase.API
             }
             
         }
+        private SDMTicketLVDTO parseNewTicket(string ticket)
+        {
+            var dtos = new List<SDMTicketLVDTO>();
+            XDocument xdoc = XDocument.Parse(ticket);
+            var attributes = xdoc.Element("UDSObject").Element("Attributes").Elements("Attribute");
+            SDMTicketLVDTO dto = new SDMTicketLVDTO();
+            dto.Id = xdoc.Element("UDSObject").Element("Handle").Value.Substring(3);
+            dto.ref_num = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "ref_num").Element("AttrValue").Value;
+            dto.Description = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "description").Element("AttrValue").Value;
+            dto.Group = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "group").Element("AttrValue").Value;
+            dto.Summary = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "summary").Element("AttrValue").Value;
+            dto.Status = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "status").Element("AttrValue").Value;
+            dto.ID_KPI = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "zz_mgnote").Element("AttrValue").Value;
+            dto.Reference1 = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "zz_cned_string1").Element("AttrValue").Value;
+            dto.Reference2 = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "zz_cned_string2").Element("AttrValue").Value;
+            dto.Reference3 = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "zz_cned_string3").Element("AttrValue").Value;
+            dto.Period = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "zz_cned_string4").Element("AttrValue").Value;
+            //dto.primary_contract_party = (attributes.FirstOrDefault(o => o.Element("AttrName").Value == "zz_primary_contract_party")==null)?"":attributes.FirstOrDefault(o => o.Element("AttrName").Value == "zz_primary_contract_party").Element("AttrValue").Value;
+            //dto.secondary_contract_party = (attributes.FirstOrDefault(o => o.Element("AttrName").Value == "zz_secondary_contract_party")==null)?"":attributes.FirstOrDefault(o => o.Element("AttrName").Value == "zz_secondary_contract_party").Element("AttrValue").Value;
+
+            if (_groupMapping.Any(o => o.handle.Substring(4) == dto.Group))
+            {
+                dto.Group = _groupMapping.FirstOrDefault(o => o.handle.Substring(4) == dto.Group).name;
+            }
+            return dto;
+
+        }
         private List<SDMTicketLVDTO> parseTickets(string tickets)
         {
             var dtos = new List<SDMTicketLVDTO>();
@@ -588,7 +882,7 @@ namespace Quantis.WorkFlow.APIBase.API
             {
                 var attributes = l.Element("Attributes").Elements("Attribute");
                 SDMTicketLVDTO dto = new SDMTicketLVDTO();
-                dto.Id = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "id").Element("AttrValue").Value;
+                dto.Id = l.Element("Handle").Value.Substring(3);
                 dto.ref_num = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "ref_num").Element("AttrValue").Value;
                 dto.Description = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "description").Element("AttrValue").Value;
                 dto.Group = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "group").Element("AttrValue").Value;
@@ -599,14 +893,83 @@ namespace Quantis.WorkFlow.APIBase.API
                 dto.Reference2 = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "zz_cned_string2").Element("AttrValue").Value;
                 dto.Reference3 = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "zz_cned_string3").Element("AttrValue").Value;
                 dto.Period = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "zz_cned_string4").Element("AttrValue").Value;
-                dto.primary_contract_party = (attributes.FirstOrDefault(o => o.Element("AttrName").Value == "zz_primary_contract_party")==null)?"":attributes.FirstOrDefault(o => o.Element("AttrName").Value == "zz_primary_contract_party").Element("AttrValue").Value;
-                dto.secondary_contract_party = (attributes.FirstOrDefault(o => o.Element("AttrName").Value == "zz_secondary_contract_party")==null)?"":attributes.FirstOrDefault(o => o.Element("AttrName").Value == "zz_secondary_contract_party").Element("AttrValue").Value;
-
-                if (_groupMapping.Any(o => o.GroupHandler == dto.Group))
+                dto.LastModifiedDate = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "last_mod_dt").Element("AttrValue").Value;
+                var zz1 = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "zz_string1");
+                var zz2 = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "zz_string2");
+                var zz3 = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "zz_string3");
+                bool isIncluded = true;
+                if (zz1 == null)
                 {
-                    dto.Group = _groupMapping.FirstOrDefault(o => o.GroupHandler == dto.Group).GroupName;
+                    dto.primary_contract_party = "";
+                    dto.secondary_contract_party = "";
+                    isIncluded = false;
                 }
-                dtos.Add(dto);
+                else
+                {
+                    var val = zz1.Element("AttrValue").Value.Split("|");
+                    dto.primary_contract_party = val[0];
+                    if (val.Count() == 2)
+                    {
+                        dto.secondary_contract_party = val[1];
+                    }
+                    else
+                    {
+                        dto.secondary_contract_party = "";
+                    }
+                }
+                if (zz2 != null)
+                {
+                    dto.calcValue = zz2.Element("AttrValue").Value;
+                }
+                else
+                {
+                    isIncluded = false;
+                }
+                if (zz3 != null)
+                {
+                    dto.KpiIds = zz3.Element("AttrValue").Value;
+                    int kpiid = 0;
+                    int.TryParse(dto.KpiIds.Split('|').FirstOrDefault(), out kpiid);
+                    dto.kpiIdPK = kpiid;
+                }
+                else
+                {
+                    isIncluded = false;
+                }
+                if (_groupMapping.Any(o => o.handle.Substring(4) == dto.Group) && !string.IsNullOrEmpty(dto.primary_contract_party))
+                {
+                    var groupscene = _groupMapping.FirstOrDefault(o => o.handle.Substring(4) == dto.Group && o.category_id == int.Parse(dto.primary_contract_party));
+                    if (groupscene != null)
+                    {
+                        dto.Group = groupscene.name;
+                    }
+                    
+                }
+                else
+                {
+                    isIncluded = false;
+                }
+                if (_statusMapping.Any(o => o.code == dto.Status))
+                {
+                    var st = dto.Status;
+                    dto.Status = _statusMapping.FirstOrDefault(o => o.code == dto.Status).name;
+                    if(_statusMapping.First(o => o.code == st).step == _statusMapping.Max(p=>p.step))
+                    {
+                        dto.IsClosed = true;
+                    }
+                    else
+                    {
+                        dto.IsClosed = false;
+                    }
+                }
+                else
+                {
+                    isIncluded = false;
+                }
+                if (isIncluded)
+                {
+                    dtos.Add(dto);
+                }                
             }
             return dtos;
         }
@@ -639,9 +1002,9 @@ namespace Quantis.WorkFlow.APIBase.API
             {
                 var attributes = l.Element("Attributes").Elements("Attribute");
                 SDMAttachmentDTO dto = new SDMAttachmentDTO();
-                dto.AttachmentHandle = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "persistent_id").Element("AttrValue").Value;
-                dto.AttachmentName = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "attmnt_name").Element("AttrValue").Value;
-                dto.TicketHandle = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "attached_persid").Element("AttrValue").Value;
+                dto.AttachmentHandle = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "attmnt").Element("AttrValue").Value;
+                dto.AttachmentName = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "attmnt.attmnt_name").Element("AttrValue").Value;
+                dto.LastModifiedDate = attributes.FirstOrDefault(o => o.Element("AttrName").Value == "last_mod_dt").Element("AttrValue").Value;
                 dtos.Add(dto);
             }
             return dtos;
@@ -649,59 +1012,47 @@ namespace Quantis.WorkFlow.APIBase.API
 
         private string SendSOAPRequest(string url, string action, Dictionary<string, string> parameters,byte[] fileData)
         {
-            MultipartFormDataContent multiContent = new MultipartFormDataContent();
-            XmlDocument soapEnvelopeXml = new XmlDocument();
-            var xmlStr = @"<soapenv:Envelope xmlns:soapenv=""http://schemas.xmlsoap.org/soap/envelope/"" xmlns:ser=""http://www.ca.com/UnicenterServicePlus/ServiceDesk"">
-                    <soapenv:Header/>
-                    <soapenv:Body>
-                    <ser:{0}>
-                    {1}
-                    </ser:{0}>
-                    </soapenv:Body>
-                    </soapenv:Envelope>";
-            string parms = string.Join(string.Empty, parameters.Select(kv => String.Format("<{0}>{1}</{0}>", kv.Key, kv.Value)).ToArray());
-            var s = String.Format(xmlStr, action, parms);
-            soapEnvelopeXml.LoadXml(s);
-            // Create the web request
-            string boundary = "=" + DateTime.Now.Ticks.ToString("x");
-            HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(url);
-            webRequest.Headers.Add("Content-Type", string.Format("multipart/related; type=\"text/xml\"; start=\"<rootpart@soapui.org> \"; boundary=\"{0}\"", boundary));
-            webRequest.Headers.Add("Accept-Encoding", "gzip,deflate");
-            webRequest.Headers.Add("SOAPAction", "");
-            webRequest.Headers.Add("MIME-Version", "1.0");
-            webRequest.Accept = "application/xml";
-            webRequest.Method = "POST";
-            // Insert SOAP envelope
-            using (Stream stream = webRequest.GetRequestStream())
+            lock (_object)
             {
-                string topBoundry = "--" + boundary + Environment.NewLine + "Content-Type: text/xml; charset=UTF-8" + Environment.NewLine + "Content-Transfer-Encoding: 8bit" + Environment.NewLine + "Content-ID: <rootpart@soapui.org>" + Environment.NewLine + Environment.NewLine;
-                byte[] topBoundryBytes = Encoding.UTF8.GetBytes(topBoundry);
-                stream.Write(topBoundryBytes, 0, topBoundryBytes.Length);
-                soapEnvelopeXml.Save(stream);
-
-                var filename = parameters["fileName"];
-                string fileHeaderTemplate = Environment.NewLine + "--" + boundary + Environment.NewLine + "Content-Type: text/plain; charset=us-ascii; name={0}" + Environment.NewLine + "Content-Transfer-Encoding: 7bit" + Environment.NewLine + "Content-ID: <{0}>" + Environment.NewLine + "Content-Disposition: attachment; name=\"{0}\"; filename=\"{0}\"" + Environment.NewLine;
-                fileHeaderTemplate = string.Format(fileHeaderTemplate, filename);
-                byte[] fileHeaderBytes = Encoding.UTF8.GetBytes(fileHeaderTemplate + Environment.NewLine);
-                stream.Write(fileHeaderBytes, 0, fileHeaderBytes.Length);
-                stream.Write(fileData, 0, fileData.Length);
-                byte[] fileHeaderBytes2 = Encoding.UTF8.GetBytes(Environment.NewLine + "--" + boundary + "--" + Environment.NewLine);
-                stream.Write(fileHeaderBytes2, 0, fileHeaderBytes2.Length);
-
-            }
-
-            // Send request and retrieve result
-            string result = null;
-            using (WebResponse response = webRequest.GetResponse())
-            {
-                using (StreamReader rd = new StreamReader(response.GetResponseStream()))
+                var dto = new UploadTicketDTO();
+                dto.url = url;
+                dto.action = action;
+                dto.sid = parameters["sid"];
+                dto.repositoryHandle = parameters["repositoryHandle"];
+                dto.objectHandle = parameters["objectHandle"];
+                dto.description = parameters["description"];
+                dto.fileName = parameters["fileName"].Replace(":","");
+                dto.fileData = fileData;
+                using (var client = new HttpClient())
                 {
-                    result = rd.ReadToEnd();
+                    var bsiconf = _infomationAPI.GetConfiguration("be_bsi", "bsi_api_url");
+                    var output = QuantisUtilities.FixHttpURLForCall(bsiconf.Value, "/home/SendSOAPRequest");
+                    client.BaseAddress = new Uri(output.Item1);
+                    var dataAsString = JsonConvert.SerializeObject(dto);
+                    var content = new StringContent(dataAsString);
+                    content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+                    var response = client.PostAsync(output.Item2, content).Result;
+                    if (response.IsSuccessStatusCode)
+                    {
+                        string xml = response.Content.ReadAsStringAsync().Result;
+                        if (xml == "TRUE")
+                        {
+                            return "TRUE";
+                        }
+                        else
+                        {
+                            _dbcontext.LogInformation(xml);
+                            throw new Exception(xml);
+                        }
+                    }
+                    else
+                    {
+                        _dbcontext.LogInformation("Call to BSI not sucessfull");
+                        throw new Exception("Call to BSI not sucessfull");
+                    }
                 }
             }
-            XDocument xdoc = XDocument.Parse(result);
-            var ret = xdoc.DescendantNodes().Last().ToString();
-            return ret;
+            
         }
         ~ServiceDeskManagerService()
         {

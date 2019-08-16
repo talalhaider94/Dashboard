@@ -6,6 +6,8 @@ import { ApiService } from '../../../_services/api.service';
 import { LoadingFormService } from '../../../_services/loading-form.service';
 import { Subject } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
+import { Router, NavigationEnd } from '@angular/router';
+import { AuthService } from '../../../_services/auth.service';
 
 declare var $;
 let $this;
@@ -22,7 +24,9 @@ export class CatalogoKpiComponent implements OnInit {
     private apiService: ApiService,
     private toastr: ToastrService,
     private LoadingFormService: LoadingFormService,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private router: Router,
+    private auth: AuthService
   ) {
     $this = this;
   }
@@ -217,10 +221,8 @@ export class CatalogoKpiComponent implements OnInit {
     };
     this.getForms();
 
-    this.route.params.subscribe((params) => {
-      this.gatheredData.roleId = parseInt(params['id']) || 0;
-      console.log('this.gatheredData.roleId => ', this.gatheredData.roleId);
-    });
+    //this.gatheredData.roleId = this.auth.getUser().roleid;
+    this.gatheredData.roleId = 2;
     this.getPermissions();
   }
 
@@ -507,15 +509,17 @@ export class CatalogoKpiComponent implements OnInit {
   }
 
   getPermissions(){
+    console.log('999999999999999999999 => ', this.gatheredData);
     this.apiService.getPermissionsByRoldId(this.gatheredData.roleId).subscribe( data => {
-      data.array.forEach(permission => {
-        if(permission.EDIT_CATALOG_KPI == 1 || permission.EDIT_CATALOG_KPI == true){
-          console.log('permission.EDIT_CATALOG_KPI => ', permission.EDIT_CATALOG_KPI);
+      console.log('0000000000000000000000000000000 => ', data);
+      data.forEach(permission => {
+        if(permission.name=='EDIT_CATALOG_KPI'){
+          console.log('permission.name => ', permission.name);
           this.kpiButtonState = '1';
-        }else{
-          this.kpiButtonState = '';
         }
+        console.log('this.kpiButtonState => ', this.kpiButtonState);
       });
     });
   }
+
 }

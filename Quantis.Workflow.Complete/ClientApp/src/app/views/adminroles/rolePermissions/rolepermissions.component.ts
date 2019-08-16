@@ -53,6 +53,7 @@ export class RolePermissionsComponent implements OnInit {
     });
   }
   getPermissionsByRoldId(){
+    console.log("this.gatheredData.roleId => ",this.gatheredData.roleId);
     this.apiService.getPermissionsByRoldId(this.gatheredData.roleId).subscribe( data => {
       this.gatheredData.assignedPermissions = data;
     });
